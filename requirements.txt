@@ -1,3 +1,7 @@
 autopep8==2.0.1
-pre-commit==3.0.4
 ipykernel==6.21.1
+numpy==2.0.1
+pre-commit==3.0.4
+requests==2.32.3
+torch==2.2.2
+tqdm==4.66.4
