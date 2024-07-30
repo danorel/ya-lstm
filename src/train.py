@@ -9,7 +9,6 @@ from tqdm import tqdm
 from src.constants import MODELS_DIR
 from src.corpus_loader import fetch_and_load_corpus
 from src.data_loader import dataloader
-from src.model.base import init_weights
 from src.model import model_selector
 
 def train(corpus: str, name: str, epochs: int, dropout: float, sequence_size: int, batch_size: int, learning_rate: float, weight_decay: float):
@@ -27,7 +26,6 @@ def train(corpus: str, name: str, epochs: int, dropout: float, sequence_size: in
         "dropout": dropout
     }
     model: nn.Module = model_selector[name](**hyperparameters)
-    model.apply(init_weights)
     
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
@@ -38,13 +36,17 @@ def train(corpus: str, name: str, epochs: int, dropout: float, sequence_size: in
     model.train()
     for epoch in tqdm(range(1, epochs + 1)):
         total_loss = 0
-        hidden_state = model.init_hidden(batch_size)
+
+        context = model.init_hidden_state(batch_size)
+        hidden_state = model.init_hidden_state(batch_size)
 
         for batch, (embedding, target) in enumerate(dataloader(corpus, char_to_index, vocab_size, sequence_size, batch_size)):
             optimizer.zero_grad()
             
-            logits, hidden_state = model(embedding, hidden_state)
+            logits, context, hidden_state = model(embedding, context, hidden_state)
+
             hidden_state = hidden_state.detach()
+            context = context.detach()
 
             loss = criterion(logits.view(-1, vocab_size), target.view(-1))
             

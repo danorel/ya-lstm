@@ -10,7 +10,7 @@ from src.utils import one_hot_encoding
 
 def load_model(name: str) -> nn.Module:
     models_dir = pathlib.Path(MODELS_DIR)
-    filepath = models_dir / name / 'final_state_dict.pth'
+    filepath = models_dir / name / '1_state_dict.pth'
     if not filepath.exists():
         raise RuntimeError("Not found pre-trained LSTM model")
     return torch.load(filepath)
@@ -23,13 +23,15 @@ def generate(model: nn.Module, prompt: str, char_to_index: dict, index_to_char: 
     chars = copy.deepcopy(prompt.split('\s'))
 
     model.eval()
-    hidden_state = model.init_hidden()
+
+    context = model.init_hidden_state()
+    hidden_state = model.init_hidden_state()
 
     char = None
     i = 0
     while i < (output_size - len(prompt)) and char != '\n':
         with torch.no_grad():
-            logits, hidden_state = model(sequence_embedding, hidden_state)
+            logits, context, hidden_state = model(sequence_embedding, context, hidden_state)
             logits_probs = torch.softmax(logits[:, -1, :], dim=-1).data
 
         char_idx = torch.multinomial(logits_probs, 1).item()
@@ -52,7 +54,7 @@ def prompt(corpus: str, name: str, text: str, sequence_size: int, output_size: i
     vocab_size = len(vocab)
     model = load_model(name)
 
-    return generate(model, text, char_to_index, index_to_char, vocab_size, sequence_size, output_size)
+    return generate(model, text.lower(), char_to_index, index_to_char, vocab_size, sequence_size, output_size)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Generate text based on a arbitrary corpus.")
