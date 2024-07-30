@@ -1,69 +1,109 @@
 import argparse
+import math
+import optuna
 import torch
+import torchmetrics
 import torch.nn as nn
 import torch.optim as optim
+import typing as t
 import pathlib
 
 from tqdm import tqdm
+from torch.utils.tensorboard import SummaryWriter
 
 from src.constants import MODELS_DIR
 from src.corpus_loader import fetch_and_load_corpus
 from src.data_loader import dataloader
 from src.model import model_selector
 
-def train(corpus: str, name: str, epochs: int, dropout: float, sequence_size: int, batch_size: int, learning_rate: float, weight_decay: float):
+def train(corpus: str, name: str, hyperparameters, trial: t.Optional[optuna.Trial] = None) -> float:
+    tensorboard = SummaryWriter()
+
     vocab = sorted(set(corpus))
 
     char_to_index = {char: idx for idx, char in enumerate(vocab)}
 
     vocab_size = len(vocab)
-    hidden_size = vocab_size * 4
     
-    hyperparameters = {
+    model: nn.Module = model_selector[name](**{
         "input_size": vocab_size,
-        "hidden_size": hidden_size,
         "output_size": vocab_size,
-        "dropout": dropout
-    }
-    model: nn.Module = model_selector[name](**hyperparameters)
+        "hidden_size": hyperparameters['hidden_size'],
+        "lstm_size": hyperparameters['lstm_size'],
+        "dropout": hyperparameters['dropout'],
+    })
     
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    optimizer = optim.Adam(
+        model.parameters(),
+        lr=hyperparameters['learning_rate'],
+        weight_decay=hyperparameters['weight_decay']
+    )
 
     model_dir = pathlib.Path(MODELS_DIR) / model.name
     model_dir.mkdir(parents=True, exist_ok=True)
     
+    accuracy_metric = torchmetrics.Accuracy(task='multiclass', num_classes=vocab_size)
+    
     model.train()
-    for epoch in tqdm(range(1, epochs + 1)):
-        total_loss = 0
+    for epoch in tqdm(range(1, hyperparameters['epochs'] + 1)):
+        epoch_loss = 0
+        epoch_steps = 0
 
-        context = model.init_hidden_state(batch_size)
-        hidden_state = model.init_hidden_state(batch_size)
+        for step, (embedding, target) in enumerate(dataloader(corpus, char_to_index, vocab_size, hyperparameters['sequence_size'], hyperparameters['batch_size']), 1):
+            logits = model(embedding)
 
-        for batch, (embedding, target) in enumerate(dataloader(corpus, char_to_index, vocab_size, sequence_size, batch_size)):
+            logits = logits.view(-1, vocab_size)  # Flatten logits to shape [batch_size * sequence_size, vocab_size]
+            target = target.view(-1)  # Flatten target to shape [batch_size * sequence_size]
+
+            assert logits.shape[0] == target.shape[0], f"Shape mismatch: {logits.shape[0]} != {target.shape[0]}"
+
+            loss = criterion(logits, target)
+            
             optimizer.zero_grad()
-            
-            logits, context, hidden_state = model(embedding, context, hidden_state)
-
-            hidden_state = hidden_state.detach()
-            context = context.detach()
-
-            loss = criterion(logits.view(-1, vocab_size), target.view(-1))
-            
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
             
             loss = loss.item()
-            total_loss += loss
+            epoch_loss += loss
+            
+            predictions = torch.argmax(logits, dim=1)
+            accuracy_metric.update(predictions, target)
+            accuracy = accuracy_metric.compute().item() * 100
 
-            if batch % 100 == 0:
-                print(f"Epoch {epoch}/{epochs}, Batch Loss (batch = {batch}): {loss:.4f}")
+            tensorboard.add_scalar('Loss/average', (epoch_loss / step), step)
+            tensorboard.add_scalar('Loss/step', loss, step)
+            tensorboard.add_scalar('Accuracy/step', accuracy, step)
+            
+            if trial is not None:
+                trial.report(accuracy, epoch)
+                
+                if trial.should_prune():
+                    raise optuna.exceptions.TrialPruned()
+            
+            if step % 100 == 0:
+                print(f"Epoch {epoch}/{hyperparameters['epochs']} (step = {step}): Loss = {loss:.4f}, Accuracy = {accuracy:.4f}")
+
+            epoch_steps += 1
+            if epoch_steps >= hyperparameters['max_steps']:
+                break
         
-        print(f"Epoch {epoch}/{epochs}, Total Loss: {total_loss:.4f}")
+        epoch_accuracy = accuracy_metric.compute().item() * 100
+
+        tensorboard.add_scalar('Accuracy/epoch', epoch_accuracy, epoch)
+        tensorboard.add_scalar('Loss/epoch', epoch_loss, epoch)
+        
+        print(f"Epoch {epoch} finished with Total Loss: {epoch_loss:.4f}, Accuracy: {epoch_accuracy:.4f}")
+
         torch.save(model, model_dir / f'{epoch}_state_dict.pth')
 
     torch.save(model, model_dir / 'final_state_dict.pth')
+
+    tensorboard.flush()
+    tensorboard.close()
+
+    return accuracy_metric.compute().item() * 100
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Train a LSTM-like model on a specified text corpus.")
@@ -74,11 +114,17 @@ if __name__ == '__main__':
                         help='URL to fetch the text corpus')
     parser.add_argument('--epochs', type=int, default=3,
                         help='Number of training epochs')
-    parser.add_argument('--dropout', type=float, default=0.5,
+    parser.add_argument('--max_steps', type=float, default=+math.inf,
+                        help='Number of training steps within the epoch')
+    parser.add_argument('--dropout', type=float, default=0.2,
                         help='Dropout rate for training')
+    parser.add_argument('--lstm_size', type=int, default=2,
+                        help='The number of LSTM layers')
+    parser.add_argument('--hidden_size', type=int, default=256,
+                        help='The size of hidden/context layers')
     parser.add_argument('--sequence_size', type=int, default=16,
                         help='The size of each input sequence')
-    parser.add_argument('--batch_size', type=int, default=512,
+    parser.add_argument('--batch_size', type=int, default=1024,
                         help='Number of samples in each batch')
     parser.add_argument('--learning_rate', type=float, default=0.001,
                         help='Learning rate parameter of LSTM optimizer (Adam is a default setting)')
@@ -89,4 +135,14 @@ if __name__ == '__main__':
 
     corpus = fetch_and_load_corpus(args.url)
     
-    train(corpus, args.name, args.epochs, args.dropout, args.sequence_size, args.batch_size, args.learning_rate, args.weight_decay)
+    train(corpus, name=args.name, hyperparameters={
+        "max_steps": args.max_steps,
+        "epochs": args.epochs,
+        "dropout": args.dropout, 
+        "lstm_size": args.lstm_size,
+        "hidden_size": args.hidden_size,
+        "sequence_size": args.sequence_size,
+        "batch_size": args.batch_size,
+        "learning_rate": args.learning_rate,
+        "weight_decay": args.weight_decay
+    })

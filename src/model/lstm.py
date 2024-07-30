@@ -49,37 +49,61 @@ class LSTM(nn.Module):
         input_size: int,
         hidden_size: int,
         output_size: int,
-        dropout: float = 0.25
+        dropout: float = 0.25,
+        lstm_size: int = 1
     ):
         super(LSTM, self).__init__()
 
         self.hidden_size = hidden_size
+        self.lstm_size = lstm_size
 
-        self.lstm_cell = LSTMCell(input_size, hidden_size, dropout)
+        self.lstm_cells = nn.ModuleList([
+            LSTMCell(input_size if i == 0 else hidden_size, hidden_size, dropout) 
+            for i in range(lstm_size)
+        ])
         self.decoder = nn.Linear(hidden_size, output_size)
         self.dropout = nn.Dropout(dropout)
 
-        self._initialize_weights()
+        self._init_weights()
+
+        self._hidden_states = None
     
-    def _initialize_weights(self):
+    def _init_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight)
                 nn.init.zeros_(m.bias)
 
-    def forward(self, x, c = None, h = None):
-        if h is None:
-            h = self.init_hidden_state(x.size(0))
-        if c is None:
-            c = self.init_hidden_state(x.size(0))
+    def _init_hidden_states(self, batch_size: int = 1):
+        self._hidden_states = [
+            (
+                torch.zeros(batch_size, self.hidden_size),
+                torch.zeros(batch_size, self.hidden_size)
+            )
+            for _ in range(self.lstm_size)
+        ]
 
-        o = []
-        for pos in range(x.size(1)):
-            c, h = self.lstm_cell(x[:, pos, :], c, h)
-            o.append(self.dropout(self.decoder(h)))
-        o = torch.stack(o, dim=1)
+    def forward(self, x):
+        if self._hidden_states is None:
+            self._init_hidden_states(x.size(0))
+
+        prev_hidden_states = self._hidden_states
         
-        return o, c, h
+        o = []
+        for t in range(x.size(1)):
+            i = x[:, t, :]
+            next_hidden_states = []
+            for k in range(self.lstm_size):
+                lstm = self.lstm_cells[k]
+                c_prev, h_prev = prev_hidden_states[k]
+                c_next, h_next = lstm(i, c_prev, h_prev)
+                h_next = self.dropout(h_next)
+                next_hidden_states.append((c_next, h_next))
+                i = h_next
+            o.append(next_hidden_states[-1][1])
+        o = torch.stack(o, dim=1)
+        o = self.decoder(o)
 
-    def init_hidden_state(self, batch_size: int = 1):
-        return torch.zeros(batch_size, self.hidden_size)
+        self._hidden_states = [(c.detach(), h.detach()) for c, h in next_hidden_states]
+        
+        return o

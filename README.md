@@ -32,6 +32,12 @@ python -m src.train --name lstm --epochs 5 --sequence_size 32 --dropout 0.3 --ba
 python -m src.eval --name lstm --prompt_text 'Forecasting for you' --output_size 100
 ```
 
+5. Tune LSTM agent via Optuna:
+
+```bash
+python -m src.tune
+```
+
 ## Experiments
 
 1. Trained a character-level language model via GRU model:

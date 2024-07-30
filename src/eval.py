@@ -24,16 +24,13 @@ def generate(model: nn.Module, prompt: str, char_to_index: dict, index_to_char: 
 
     model.eval()
 
-    context = model.init_hidden_state()
-    hidden_state = model.init_hidden_state()
-
     char = None
     i = 0
     while i < (output_size - len(prompt)) and char != '\n':
         with torch.no_grad():
-            logits, context, hidden_state = model(sequence_embedding, context, hidden_state)
+            logits = model(sequence_embedding)
             logits_probs = torch.softmax(logits[:, -1, :], dim=-1).data
-
+        
         char_idx = torch.multinomial(logits_probs, 1).item()
         char = index_to_char[char_idx]
         chars.append(char)
