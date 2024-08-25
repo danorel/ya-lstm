@@ -57,7 +57,8 @@ def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: 
     model_dir.mkdir(parents=True, exist_ok=True)
     
     accuracy_metric = torchmetrics.Accuracy(task='multiclass', num_classes=vocab_size).to(device)
-    
+    accumulation_steps = hyperparameters['accumulation_steps']
+
     model.train()
 
     start_time = time.time()
@@ -79,11 +80,14 @@ def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: 
             assert logits.shape[0] == target.shape[0], f"Shape mismatch: {logits.shape[0]} != {target.shape[0]}"
 
             loss = criterion(logits, target)
-            
-            optimizer.zero_grad()
+            loss = loss / accumulation_steps
+
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            optimizer.step()
+
+            if (step % accumulation_steps) == 0:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)  # Gradient clipping
+                optimizer.step()
+                optimizer.zero_grad()
             
             loss = loss.item()
             epoch_loss += loss
@@ -162,6 +166,8 @@ if __name__ == '__main__':
                         help='Learning rate parameter of LSTM optimizer (Adam is a default setting)')
     parser.add_argument('--weight_decay', type=float, default=0.001,
                         help='Weight decay parameter of LSTM optimizer (Adam is a default setting) which serves for weights normalization to avoid overfitting')
+    parser.add_argument('--accumulation_steps', type=int, default=1,
+                        help='Accumulations steps per LSTM optimizer to make backward propagation pass (Adam is a default setting)')
     
     args = parser.parse_args()
 
@@ -184,7 +190,8 @@ if __name__ == '__main__':
             "sequence_size": args.sequence_size,
             "batch_size": args.batch_size,
             "learning_rate": args.learning_rate,
-            "weight_decay": args.weight_decay
+            "weight_decay": args.weight_decay,
+            "accumulation_steps": args.accumulation_steps
         },
         use_tensorboard=args.use_tensorboard
     )

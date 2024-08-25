@@ -32,14 +32,14 @@ python \
     -m src.train \
     --use_tensorboard \
     --name lstm \
-    --url https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt \
     --epochs 20 \
     --dropout 0.1 \
     --lstm_size 2 \
     --hidden_size 256 \
     --sequence_size 64 \
     --batch_size 1024 \
-    --learning_rate 0.01
+    --learning_rate 0.01 \
+    --accumulation_steps 2
 ```
 
 4. Evaluate LSTM agent via generation sampling on **custom** dataset with **pre-trained** model hyperparameters:
@@ -69,7 +69,8 @@ python \
     --use_profiler \
     --num_workers 0 \
     --name lstm \
-    --url https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt
+    --url https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt \
+    --accumulation_steps 5
 ```
 
 6. Track metrics of LSTM agent during training via Tensorboard:

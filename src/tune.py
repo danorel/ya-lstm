@@ -22,7 +22,8 @@ def objective(use_tensorboard: bool, num_workers: int = 1):
             'sequence_size': trial.suggest_int('sequence_size', 16, 64),
             'batch_size': trial.suggest_int('batch_size', 128, 1024),
             'learning_rate': trial.suggest_float('learning_rate', 1e-5, 1e-1, log=True),
-            'weight_decay': trial.suggest_float('weight_decay', 1e-5, 1e-1, log=True)
+            'weight_decay': trial.suggest_float('weight_decay', 1e-5, 1e-1, log=True),
+            'accumulation_steps': trial.suggest_int('accumulation_steps', 1, 5)
         }
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         corpus = fetch_and_load_corpus('https://ocw.mit.edu/ans7870/6/6.006/s08/lecturenotes/files/t8.shakespeare.txt')
