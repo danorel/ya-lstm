@@ -91,6 +91,9 @@ class LSTM(nn.Module):
             for _ in range(self.lstm_size)
         ]
 
+    def reset_hidden_states(self):
+        self._hidden_states = None
+
     def forward(self, x):
         x = x.to(self.device)
 

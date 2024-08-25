@@ -20,22 +20,22 @@ python -m src.train --name lstm
 python -m src.train --name lstm --url https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt
 ```
 
-3. Train LSTM agent on **default** shakespeare dataset with the **custom** available and tunable hyperparameters: 'epochs', 'dropout', 'sequence_size', 'batch_size', 'learning_rate', and 'weight_decay':
+3. Train LSTM agent on **custom** shakespeare dataset with the **custom** available and tunable hyperparameters: 'epochs', 'dropout', 'sequence_size', 'batch_size', 'learning_rate', and 'weight_decay':
 
 ```bash
-python -m src.train --name lstm --epochs 5 --sequence_size 32 --dropout 0.3 --batch_size 256 --learning_rate 0.0001 --weight_decay 0.0001
+python -m src.train --name lstm --url https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt --epochs 20 --dropout 0.1 --lstm_size 2 --hidden_size 256 --sequence_size 64 --batch_size 1024 --learning_rate 0.01
 ```
 
 4. Evaluate LSTM agent via generation sampling on **custom** dataset with **pre-trained** model hyperparameters:
 
 ```bash
-python -m src.eval --name lstm --prompt_text 'Forecasting for you' --output_size 100
+python -m src.eval --name lstm --url https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt --prompt_text 'Hello my dear darling and princess' --output_size 128
 ```
 
 5. Tune LSTM agent via Optuna:
 
 ```bash
-python -m src.tune
+python -m src.tune --trials 16
 ```
 
 ## Experiments

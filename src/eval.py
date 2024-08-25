@@ -15,13 +15,17 @@ def load_model(device: str, name: str) -> nn.Module:
         raise RuntimeError("Not found pre-trained LSTM model")
     model: nn.Module = torch.load(filepath)
     model.to(device)
+    model.reset_hidden_states()
     return model
 
 def generate(device: str, model: nn.Module, prompt: str, char_to_index: dict, index_to_char: dict, vocab_size: int, sequence_size: int = 16, output_size: int = 100) -> str:
     if len(prompt) < sequence_size:
         raise RuntimeError(f"Starting characters should have at least {sequence_size} symbols")
     
-    sequence_embedding = one_hot_encoding(torch.tensor([char_to_index[char] for char in prompt[-sequence_size:]], dtype=torch.long), vocab_size).unsqueeze(0).to(device)
+    sequence_embedding = one_hot_encoding(
+        indices=torch.tensor([char_to_index[char] for char in prompt[-sequence_size:]], dtype=torch.long), 
+        vocab_size=vocab_size
+    ).unsqueeze(0).to(device)
     chars = copy.deepcopy(prompt.split('\s'))
 
     model.eval()
@@ -31,8 +35,8 @@ def generate(device: str, model: nn.Module, prompt: str, char_to_index: dict, in
     while i < (output_size - len(prompt)) and char != '\n':
         with torch.no_grad():
             logits = model(sequence_embedding)
-            logits_probs = torch.softmax(logits[:, -1, :], dim=-1).data
-        
+            logits_probs = torch.softmax(logits[:, -1, :], dim=-1).squeeze()
+
         char_idx = torch.multinomial(logits_probs, 1).item()
         char = index_to_char[char_idx]
         chars.append(char)

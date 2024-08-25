@@ -22,7 +22,7 @@ def objective(trial):
         'learning_rate': trial.suggest_float('learning_rate', 1e-5, 1e-1, log=True),
         'weight_decay': trial.suggest_float('weight_decay', 1e-5, 1e-1, log=True)
     }
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     corpus = fetch_and_load_corpus('https://ocw.mit.edu/ans7870/6/6.006/s08/lecturenotes/files/t8.shakespeare.txt')
     accuracy = train(device, corpus, name='lstm', hyperparameters={
         **base_hyperparameters,

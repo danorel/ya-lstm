@@ -17,10 +17,8 @@ from src.corpus_loader import fetch_and_load_corpus
 from src.data_loader import dataloader
 from src.model import model_selector
 
-def train(device: str, corpus: str, name: str, hyperparameters, trial: t.Optional[optuna.Trial] = None) -> float:
+def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: t.Optional[optuna.Trial] = None) -> float:
     tensorboard = SummaryWriter()
-
-    device = torch.device(device)
 
     vocab = sorted(set(corpus))
     vocab_size = len(vocab)
@@ -50,12 +48,13 @@ def train(device: str, corpus: str, name: str, hyperparameters, trial: t.Optiona
     model.train()
 
     start_time = time.time()
+    print(f"Training on {device} started at {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time))}")
 
     for epoch in tqdm(range(1, hyperparameters['epochs'] + 1)):
         epoch_loss = 0
         epoch_steps = 0
 
-        for step, (embedding, target) in enumerate(dataloader(corpus, char_to_index, vocab_size, hyperparameters['sequence_size'], hyperparameters['batch_size']), 1):
+        for step, (embedding, target) in enumerate(dataloader(device, corpus, char_to_index, vocab_size, hyperparameters['sequence_size'], hyperparameters['batch_size']), 1):
             embedding, target = embedding.to(device), target.to(device)
 
             logits = model(embedding)
@@ -96,10 +95,6 @@ def train(device: str, corpus: str, name: str, hyperparameters, trial: t.Optiona
             if epoch_steps >= hyperparameters['max_steps']:
                 break
 
-        end_time = time.time()
-        total_time = end_time - start_time
-        print(f"Training on {device} took {total_time:.2f} seconds")
-        
         epoch_accuracy = accuracy_metric.compute().item() * 100
 
         tensorboard.add_scalar('Accuracy/epoch', epoch_accuracy, epoch)
@@ -108,6 +103,10 @@ def train(device: str, corpus: str, name: str, hyperparameters, trial: t.Optiona
         print(f"Epoch {epoch} finished with Total Loss: {epoch_loss:.4f}, Accuracy: {epoch_accuracy:.4f}")
 
         torch.save(model, model_dir / f'{epoch}_state_dict.pth')
+    
+    end_time = time.time()
+    total_time = end_time - start_time
+    print(f"Training on {device} took {total_time:.2f} seconds")
 
     torch.save(model, model_dir / 'final_state_dict.pth')
 
@@ -144,7 +143,7 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     corpus = fetch_and_load_corpus(args.url)
     
     train(device, corpus, name=args.name, hyperparameters={
