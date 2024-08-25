@@ -17,7 +17,7 @@ python -m src.train --name lstm
 2. Train LSTM agent on **custom** dataset (probably, it can be any .txt file) with **default** hyperparameters:
 
 ```bash
-python -m src.train --name lstm --url https://raw.githubusercontent.com/karpathy/char-lstm/master/data/tinyshakespeare/input.txt
+python -m src.train --name lstm --url https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt
 ```
 
 3. Train LSTM agent on **default** shakespeare dataset with the **custom** available and tunable hyperparameters: 'epochs', 'dropout', 'sequence_size', 'batch_size', 'learning_rate', and 'weight_decay':

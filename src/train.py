@@ -1,6 +1,7 @@
 import argparse
 import math
 import optuna
+import time
 import torch
 import torchmetrics
 import torch.nn as nn
@@ -16,14 +17,14 @@ from src.corpus_loader import fetch_and_load_corpus
 from src.data_loader import dataloader
 from src.model import model_selector
 
-def train(corpus: str, name: str, hyperparameters, trial: t.Optional[optuna.Trial] = None) -> float:
+def train(device: str, corpus: str, name: str, hyperparameters, trial: t.Optional[optuna.Trial] = None) -> float:
     tensorboard = SummaryWriter()
 
+    device = torch.device(device)
+
     vocab = sorted(set(corpus))
-
-    char_to_index = {char: idx for idx, char in enumerate(vocab)}
-
     vocab_size = len(vocab)
+    char_to_index = {char: idx for idx, char in enumerate(vocab)}
     
     model: nn.Module = model_selector[name](**{
         "input_size": vocab_size,
@@ -31,6 +32,7 @@ def train(corpus: str, name: str, hyperparameters, trial: t.Optional[optuna.Tria
         "hidden_size": hyperparameters['hidden_size'],
         "lstm_size": hyperparameters['lstm_size'],
         "dropout": hyperparameters['dropout'],
+        "device": device
     })
     
     criterion = nn.CrossEntropyLoss()
@@ -43,14 +45,19 @@ def train(corpus: str, name: str, hyperparameters, trial: t.Optional[optuna.Tria
     model_dir = pathlib.Path(MODELS_DIR) / model.name
     model_dir.mkdir(parents=True, exist_ok=True)
     
-    accuracy_metric = torchmetrics.Accuracy(task='multiclass', num_classes=vocab_size)
+    accuracy_metric = torchmetrics.Accuracy(task='multiclass', num_classes=vocab_size).to(device)
     
     model.train()
+
+    start_time = time.time()
+
     for epoch in tqdm(range(1, hyperparameters['epochs'] + 1)):
         epoch_loss = 0
         epoch_steps = 0
 
         for step, (embedding, target) in enumerate(dataloader(corpus, char_to_index, vocab_size, hyperparameters['sequence_size'], hyperparameters['batch_size']), 1):
+            embedding, target = embedding.to(device), target.to(device)
+
             logits = model(embedding)
 
             logits = logits.view(-1, vocab_size)  # Flatten logits to shape [batch_size * sequence_size, vocab_size]
@@ -88,6 +95,10 @@ def train(corpus: str, name: str, hyperparameters, trial: t.Optional[optuna.Tria
             epoch_steps += 1
             if epoch_steps >= hyperparameters['max_steps']:
                 break
+
+        end_time = time.time()
+        total_time = end_time - start_time
+        print(f"Training on {device} took {total_time:.2f} seconds")
         
         epoch_accuracy = accuracy_metric.compute().item() * 100
 
@@ -133,9 +144,10 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
 
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     corpus = fetch_and_load_corpus(args.url)
     
-    train(corpus, name=args.name, hyperparameters={
+    train(device, corpus, name=args.name, hyperparameters={
         "max_steps": args.max_steps,
         "epochs": args.epochs,
         "dropout": args.dropout, 
