@@ -11,43 +11,74 @@ Use the [DEVELOPER.md](./DEVELOPER.md) guide to run or contribute to the project
 1. Train LSTM agent on **default** shakespeare dataset with **default** hyperparameters:
 
 ```bash
-python -m src.train --name lstm
+python \
+    -m src.train \
+    --name lstm
 ```
 
 2. Train LSTM agent on **custom** dataset (probably, it can be any .txt file) with **default** hyperparameters:
 
 ```bash
-python -m src.train --name lstm --url https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt
+python \
+    -m src.train \
+    --name lstm \
+    --url https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt
 ```
 
-3. Train LSTM agent on **custom** shakespeare dataset with the **custom** available and tunable hyperparameters: 'use_profiler', 'use_tensorboard', 'name', 'url', 'epochs', 'max_steps', 'dropout', 'lstm_size', 'hidden_size', 'sequence_size', 'batch_size', 'learning_rate', and 'weight_decay':
+3. Train LSTM agent on **custom** shakespeare dataset with the **custom** available and tunable hyperparameters: 'use_profiler', 'use_tensorboard', 'num_workers', 'name', 'url', 'epochs', 'max_steps', 'dropout', 'lstm_size', 'hidden_size', 'sequence_size', 'batch_size', 'learning_rate', and 'weight_decay':
 
 ```bash
-python -m src.train --name lstm --url https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt --epochs 20 --dropout 0.1 --lstm_size 2 --hidden_size 256 --sequence_size 64 --batch_size 1024 --learning_rate 0.01
+python \
+    -m src.train \
+    --use_tensorboard \
+    --name lstm \
+    --url https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt \
+    --epochs 20 \
+    --dropout 0.1 \
+    --lstm_size 2 \
+    --hidden_size 256 \
+    --sequence_size 64 \
+    --batch_size 1024 \
+    --learning_rate 0.01
 ```
 
 4. Evaluate LSTM agent via generation sampling on **custom** dataset with **pre-trained** model hyperparameters:
 
 ```bash
-python -m src.eval --name lstm --url https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt --prompt_text 'Hello my dear darling and princess, ' --output_size 128
+python \
+    -m src.eval \
+    --name lstm \
+    --url https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt \
+    --prompt_text 'Hello my dear darling and princess, ' \
+    --output_size 128
 ```
 
 5. Tune LSTM agent via Optuna:
 
 ```bash
-python -m src.tune --trials 16
+python \
+    -m src.tune \
+    --trials 16
 ```
 
 6. Profile LSTM agent via torch.utils.bottleneck:
 
 ```bash
-python -m torch.utils.bottleneck src/train.py --use_profiler --num_workers 0 --name lstm
+python \
+    -m torch.utils.bottleneck src/train.py \
+    --use_profiler \
+    --num_workers 0 \
+    --name lstm \
+    --url https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt
 ```
 
 6. Track metrics of LSTM agent during training via Tensorboard:
 
 ```bash
-python -m src.train --use_tensorboard --name lstm
+python \
+    -m src.train \
+    --use_tensorboard \
+    --name lstm
 ```
 
 ## Experiments
@@ -55,13 +86,26 @@ python -m src.train --use_tensorboard --name lstm
 1. Trained a character-level language model via GRU model:
 
 ```bash
-python -m src.train --name gru --url https://github.com/karpathy/char-lstm/blob/master/data/tinyshakespeare/input.txt --epochs 5 --dropout 0.25 --learning_rate 0.001 --sequence_size 64
+python \
+    -m src.train \
+    --name gru \
+    --url https://github.com/karpathy/char-lstm/blob/master/data/tinyshakespeare/input.txt \
+    --epochs 5 \
+    --dropout 0.25 \
+    --learning_rate 0.001 \
+    --sequence_size 64
 ```
 
 2. Prompt on a pre-trained character-level language model via GRU model:
 
 ```bash
-python -m src.eval --name gru --url https://github.com/karpathy/char-lstm/blob/master/data/tinyshakespeare/input.txt --sequence_size 64 --prompt_text 'hello, my darling, my name is lord orvald and i am fond of staring at your' --output_size 128
+python \
+    -m src.eval \
+    --name gru \
+    --url https://github.com/karpathy/char-lstm/blob/master/data/tinyshakespeare/input.txt \
+    --sequence_size 64 \
+    --prompt_text 'hello, my darling, my name is lord orvald and i am fond of staring at your' \
+    --output_size 128
 ```
 
 ## License
