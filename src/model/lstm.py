@@ -8,39 +8,31 @@ class LSTMCell(nn.Module):
         hidden_size: int,
         dropout: float = 0.25,
         device: torch.device = torch.device('cpu')
-    ) -> None:
+    ):
         super(LSTMCell, self).__init__()
 
         self.device = device
+
         self.dropout = nn.Dropout(dropout).to(self.device)
-
-        self.input_to_forget = nn.Linear(input_size, hidden_size).to(self.device)
-        self.input_to_input = nn.Linear(input_size, hidden_size).to(self.device)
-        self.input_to_cell = nn.Linear(input_size, hidden_size).to(self.device)
-        self.input_to_output = nn.Linear(input_size, hidden_size).to(self.device)
-
-        self.hidden_to_forget = nn.Linear(hidden_size, hidden_size).to(self.device)
-        self.hidden_to_input = nn.Linear(hidden_size, hidden_size).to(self.device)
-        self.hidden_to_cell = nn.Linear(hidden_size, hidden_size).to(self.device)
-        self.hidden_to_output = nn.Linear(hidden_size, hidden_size).to(self.device)
+        self.weight = nn.Parameter(torch.Tensor(4 * hidden_size, input_size + hidden_size)).to(self.device)
+        self.bias = nn.Parameter(torch.Tensor(4 * hidden_size)).to(self.device)
 
         self._initialize_weights()
 
     def _initialize_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Linear):
-                nn.init.xavier_uniform_(m.weight)
-                nn.init.zeros_(m.bias)
+        nn.init.xavier_uniform_(self.weight)
+        nn.init.zeros_(self.bias)
     
     def forward(self, x, c_prev, h_prev):
-        x = x.to(self.device)
-        c_prev = c_prev.to(self.device)
-        h_prev = h_prev.to(self.device)
+        combined = torch.cat([x, h_prev], dim=1)
+        gate_values = combined.matmul(self.weight.t()) + self.bias
 
-        forget_gate = torch.sigmoid(self.input_to_forget(x) + self.hidden_to_forget(h_prev))
-        input_gate = torch.sigmoid(self.input_to_input(x) + self.hidden_to_input(h_prev))
-        cell_gate = torch.tanh(self.input_to_cell(x) + self.hidden_to_cell(h_prev))
-        output_gate = torch.sigmoid(self.input_to_output(x) + self.hidden_to_output(h_prev))
+        forget_gate, input_gate, cell_gate, output_gate = torch.split(gate_values, gate_values.size(1) // 4, dim=1)
+        
+        forget_gate = torch.sigmoid(forget_gate)
+        input_gate = torch.sigmoid(input_gate)
+        cell_gate = torch.tanh(cell_gate)
+        output_gate = torch.sigmoid(output_gate)
         
         c_next = forget_gate * c_prev + input_gate * cell_gate
         h_next = output_gate * torch.tanh(c_next)
@@ -95,14 +87,19 @@ class LSTM(nn.Module):
         self._hidden_states = None
 
     def forward(self, x):
-        x = x.to(self.device)
+        if x.device != self.device:
+            x = x.to(self.device)
+
+        sequence_size = x.size(1)
+        batch_size = x.size(0)
+        hidden_size = self.hidden_size
 
         if self._hidden_states is None:
-            self._init_hidden_states(x.size(0))
+            self._init_hidden_states(batch_size)
 
         prev_hidden_states = self._hidden_states
-        
-        o = []
+        o = torch.zeros(batch_size, sequence_size, hidden_size, device=self.device)
+
         for t in range(x.size(1)):
             i = x[:, t, :]
             next_hidden_states = []
@@ -110,11 +107,11 @@ class LSTM(nn.Module):
                 lstm = self.lstm_cells[k]
                 c_prev, h_prev = prev_hidden_states[k]
                 c_next, h_next = lstm(i, c_prev, h_prev)
-                h_next = self.dropout(h_next)
                 next_hidden_states.append((c_next, h_next))
                 i = h_next
-            o.append(next_hidden_states[-1][1])
-        o = torch.stack(o, dim=1).to(self.device)
+            prev_hidden_states = next_hidden_states
+            o[:, t, :] = next_hidden_states[-1][1]
+
         o = self.decoder(o)
 
         self._hidden_states = [(c.detach(), h.detach()) for c, h in next_hidden_states]
