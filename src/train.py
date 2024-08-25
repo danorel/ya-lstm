@@ -14,8 +14,9 @@ from torch.utils.tensorboard import SummaryWriter
 
 from src.constants import MODELS_DIR
 from src.corpus_loader import fetch_and_load_corpus
-from src.data_loader import dataloader
+from src.data_loader import create_dataloader
 from src.model import model_selector
+from src.utils import one_hot_encoding
 
 def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: t.Optional[optuna.Trial] = None) -> float:
     tensorboard = SummaryWriter()
@@ -23,7 +24,14 @@ def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: 
     vocab = sorted(set(corpus))
     vocab_size = len(vocab)
     char_to_index = {char: idx for idx, char in enumerate(vocab)}
-    
+
+    dataloader = create_dataloader(
+        corpus,
+        char_to_index,
+        hyperparameters['sequence_size'],
+        hyperparameters['batch_size']
+    )
+
     model: nn.Module = model_selector[name](**{
         "input_size": vocab_size,
         "output_size": vocab_size,
@@ -54,8 +62,9 @@ def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: 
         epoch_loss = 0
         epoch_steps = 0
 
-        for step, (embedding, target) in enumerate(dataloader(device, corpus, char_to_index, vocab_size, hyperparameters['sequence_size'], hyperparameters['batch_size']), 1):
-            embedding, target = embedding.to(device), target.to(device)
+        for step, (sequences, targets) in enumerate(dataloader, 1):
+            embedding = one_hot_encoding(indices=sequences, vocab_size=vocab_size).to(device)
+            target = targets.to(device)
 
             logits = model(embedding)
 
