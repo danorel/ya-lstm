@@ -18,8 +18,12 @@ from src.data_loader import create_dataloader
 from src.model import model_selector
 from src.utils import one_hot_encoding
 
-def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: t.Optional[optuna.Trial] = None) -> float:
-    tensorboard = SummaryWriter()
+def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: t.Optional[optuna.Trial] = None, use_tensorboard: bool = False) -> float:
+    use_optuna = trial is not None
+
+    tensorboard = None
+    if use_tensorboard:
+        tensorboard = SummaryWriter()
 
     vocab = sorted(set(corpus))
     vocab_size = len(vocab)
@@ -82,18 +86,18 @@ def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: 
             
             loss = loss.item()
             epoch_loss += loss
-            
+
             predictions = torch.argmax(logits, dim=1)
             accuracy_metric.update(predictions, target)
             accuracy = accuracy_metric.compute().item() * 100
-
-            tensorboard.add_scalar('Loss/average', (epoch_loss / step), step)
-            tensorboard.add_scalar('Loss/step', loss, step)
-            tensorboard.add_scalar('Accuracy/step', accuracy, step)
             
-            if trial is not None:
+            if use_tensorboard:
+                tensorboard.add_scalar('Loss/average', (epoch_loss / step), step)
+                tensorboard.add_scalar('Loss/step', loss, step)
+                tensorboard.add_scalar('Accuracy/step', accuracy, step)
+            
+            if use_optuna:
                 trial.report(accuracy, epoch)
-                
                 if trial.should_prune():
                     raise optuna.exceptions.TrialPruned()
             
@@ -106,8 +110,9 @@ def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: 
 
         epoch_accuracy = accuracy_metric.compute().item() * 100
 
-        tensorboard.add_scalar('Accuracy/epoch', epoch_accuracy, epoch)
-        tensorboard.add_scalar('Loss/epoch', epoch_loss, epoch)
+        if use_tensorboard:
+            tensorboard.add_scalar('Accuracy/epoch', epoch_accuracy, epoch)
+            tensorboard.add_scalar('Loss/epoch', epoch_loss, epoch)
         
         print(f"Epoch {epoch} finished with Total Loss: {epoch_loss:.4f}, Accuracy: {epoch_accuracy:.4f}")
 
@@ -119,8 +124,9 @@ def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: 
 
     torch.save(model, model_dir / 'final_state_dict.pth')
 
-    tensorboard.flush()
-    tensorboard.close()
+    if use_tensorboard:
+        tensorboard.flush()
+        tensorboard.close()
 
     return accuracy_metric.compute().item() * 100
 
@@ -155,14 +161,19 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     corpus = fetch_and_load_corpus(args.url)
     
-    train(device, corpus, name=args.name, hyperparameters={
-        "max_steps": args.max_steps,
-        "epochs": args.epochs,
-        "dropout": args.dropout, 
-        "lstm_size": args.lstm_size,
-        "hidden_size": args.hidden_size,
-        "sequence_size": args.sequence_size,
-        "batch_size": args.batch_size,
-        "learning_rate": args.learning_rate,
-        "weight_decay": args.weight_decay
-    })
+    train(
+        device,
+        corpus,
+        name=args.name,
+        hyperparameters={
+            "max_steps": args.max_steps,
+            "epochs": args.epochs,
+            "dropout": args.dropout, 
+            "lstm_size": args.lstm_size,
+            "hidden_size": args.hidden_size,
+            "sequence_size": args.sequence_size,
+            "batch_size": args.batch_size,
+            "learning_rate": args.learning_rate,
+            "weight_decay": args.weight_decay
+        }
+    )
