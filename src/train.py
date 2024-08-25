@@ -33,7 +33,8 @@ def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: 
         corpus,
         char_to_index,
         hyperparameters['sequence_size'],
-        hyperparameters['batch_size']
+        hyperparameters['batch_size'],
+        hyperparameters['num_workers']
     )
 
     model: nn.Module = model_selector[name](**{
@@ -133,6 +134,12 @@ def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Train a LSTM-like model on a specified text corpus.")
     
+    parser.add_argument('--use_profiler', action='store_true',
+                        help="Enable profiling with torch.utils.bottleneck")
+    parser.add_argument('--use_tensorboard', action='store_true', 
+                        help="Enable tensorboard metrics collection")
+    parser.add_argument('--num_workers', type=int, default=0,
+                        help='Number of workers')
     parser.add_argument('--name', type=str, required=True, choices=['lstm', 'gru'],
                     help='Model to use as a basis for text generation (e.g., "bidirectional")')
     parser.add_argument('--url', type=str, default='https://ocw.mit.edu/ans7870/6/6.006/s08/lecturenotes/files/t8.shakespeare.txt',
@@ -160,14 +167,17 @@ if __name__ == '__main__':
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     corpus = fetch_and_load_corpus(args.url)
-    
+
+    print(f"Training config:\n\tprofiler = {args.use_profiler}\n\ttensorboard = {args.use_tensorboard}\n\tworkers = {args.num_workers}")
+
     train(
         device,
         corpus,
         name=args.name,
         hyperparameters={
-            "max_steps": args.max_steps,
-            "epochs": args.epochs,
+            "num_workers": args.num_workers,
+            "max_steps": 100 if args.use_profiler else args.max_steps,
+            "epochs": 1 if args.use_profiler else args.epochs,
             "dropout": args.dropout, 
             "lstm_size": args.lstm_size,
             "hidden_size": args.hidden_size,
@@ -175,5 +185,6 @@ if __name__ == '__main__':
             "batch_size": args.batch_size,
             "learning_rate": args.learning_rate,
             "weight_decay": args.weight_decay
-        }
+        },
+        use_tensorboard=args.use_tensorboard
     )

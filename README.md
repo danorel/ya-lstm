@@ -20,7 +20,7 @@ python -m src.train --name lstm
 python -m src.train --name lstm --url https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt
 ```
 
-3. Train LSTM agent on **custom** shakespeare dataset with the **custom** available and tunable hyperparameters: 'epochs', 'dropout', 'sequence_size', 'batch_size', 'learning_rate', and 'weight_decay':
+3. Train LSTM agent on **custom** shakespeare dataset with the **custom** available and tunable hyperparameters: 'use_profiler', 'use_tensorboard', 'name', 'url', 'epochs', 'max_steps', 'dropout', 'lstm_size', 'hidden_size', 'sequence_size', 'batch_size', 'learning_rate', and 'weight_decay':
 
 ```bash
 python -m src.train --name lstm --url https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt --epochs 20 --dropout 0.1 --lstm_size 2 --hidden_size 256 --sequence_size 64 --batch_size 1024 --learning_rate 0.01
@@ -29,13 +29,25 @@ python -m src.train --name lstm --url https://raw.githubusercontent.com/karpathy
 4. Evaluate LSTM agent via generation sampling on **custom** dataset with **pre-trained** model hyperparameters:
 
 ```bash
-python -m src.eval --name lstm --url https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt --prompt_text 'Hello my dear darling and princess' --output_size 128
+python -m src.eval --name lstm --url https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt --prompt_text 'Hello my dear darling and princess, ' --output_size 128
 ```
 
 5. Tune LSTM agent via Optuna:
 
 ```bash
 python -m src.tune --trials 16
+```
+
+6. Profile LSTM agent via torch.utils.bottleneck:
+
+```bash
+python -m torch.utils.bottleneck src/train.py --use_profiler --num_workers 0 --name lstm
+```
+
+6. Track metrics of LSTM agent during training via Tensorboard:
+
+```bash
+python -m src.train --use_tensorboard --name lstm
 ```
 
 ## Experiments
