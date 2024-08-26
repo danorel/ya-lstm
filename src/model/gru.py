@@ -12,6 +12,7 @@ class GRUCell(nn.Module):
         hidden_size: int,
         device: torch.device = torch.device('cpu'),
     ):
+        super(GRUCell, self).__init__()
         self.device = device
         self.hidden_size = hidden_size
         self.x2h = nn.Linear(input_size, 3 * hidden_size, bias=True).to(device)
@@ -42,6 +43,8 @@ class GRUCell(nn.Module):
         return h_next
 
 class GRU(nn.Module):
+    name = 'gru'
+
     def __init__(
         self,
         input_size: int,
@@ -51,15 +54,17 @@ class GRU(nn.Module):
         dropout: float = 0.5,
         device: torch.device = torch.device('cpu')
     ):
+        super(GRU, self).__init__()
+        self.device = device
         self.hidden_size = hidden_size
-        self.cells = [
+        self.cells = nn.ModuleList([
             GRUCell(
                 input_size=input_size if k == 0 else hidden_size,
                 hidden_size=hidden_size,
                 device=device
             )
             for k in range(cells_size)
-        ]
+        ])
         self.decoder = nn.Linear(hidden_size, output_size).to(device)
         self.init_weights()
 

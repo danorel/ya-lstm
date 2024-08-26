@@ -25,7 +25,7 @@ python \
     --url https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt
 ```
 
-3. Train LSTM agent on **custom** shakespeare dataset with the **custom** available and tunable hyperparameters: 'use_profiler', 'use_tensorboard', 'num_workers', 'name', 'url', 'epochs', 'max_steps', 'dropout', 'lstm_size', 'hidden_size', 'sequence_size', 'batch_size', 'learning_rate', and 'weight_decay':
+3. Train LSTM agent on **custom** shakespeare dataset with the **custom** available and tunable hyperparameters: 'use_profiler', 'use_tensorboard', 'num_workers', 'name', 'url', 'epochs', 'max_steps', 'dropout', 'cells_size', 'hidden_size', 'sequence_size', 'batch_size', 'learning_rate', and 'weight_decay':
 
 ```bash
 python \
@@ -34,7 +34,7 @@ python \
     --name lstm \
     --epochs 20 \
     --dropout 0.1 \
-    --lstm_size 2 \
+    --cells_size 2 \
     --hidden_size 256 \
     --sequence_size 64 \
     --batch_size 1024 \
@@ -48,8 +48,8 @@ python \
 python \
     -m src.eval \
     --name lstm \
-    --url https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt \
     --prompt_text 'Hello my dear darling and princess, ' \
+    --sequence_size 64 \
     --output_size 128
 ```
 

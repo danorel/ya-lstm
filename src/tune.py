@@ -17,7 +17,7 @@ def objective(use_tensorboard: bool, num_workers: int = 1):
         }
         tune_hyperparameters = {
             'dropout': trial.suggest_float('dropout', 0.1, 0.5),
-            'lstm_size': trial.suggest_int('lstm_size', 1, 3),
+            'cells_size': trial.suggest_int('cells_size', 1, 3),
             'hidden_size': trial.suggest_int('hidden_size', 128, 512),
             'sequence_size': trial.suggest_int('sequence_size', 16, 64),
             'batch_size': trial.suggest_int('batch_size', 128, 1024),

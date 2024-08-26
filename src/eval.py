@@ -15,7 +15,6 @@ def load_model(device: str, name: str) -> nn.Module:
         raise RuntimeError("Not found pre-trained LSTM model")
     model: nn.Module = torch.load(filepath)
     model.to(device)
-    model.reset_hidden_states()
     return model
 
 def generate(device: str, model: nn.Module, prompt: str, char_to_index: dict, index_to_char: dict, vocab_size: int, sequence_size: int = 16, output_size: int = 100) -> str:

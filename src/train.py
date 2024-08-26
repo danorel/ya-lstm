@@ -41,7 +41,7 @@ def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: 
         "input_size": vocab_size,
         "output_size": vocab_size,
         "hidden_size": hyperparameters['hidden_size'],
-        "cells_size": hyperparameters['lstm_size'],
+        "cells_size": hyperparameters['cells_size'],
         "dropout": hyperparameters['dropout'],
         "device": device
     })
@@ -154,7 +154,7 @@ if __name__ == '__main__':
                         help='Number of training steps within the epoch')
     parser.add_argument('--dropout', type=float, default=0.2,
                         help='Dropout rate for training')
-    parser.add_argument('--lstm_size', type=int, default=2,
+    parser.add_argument('--cells_size', type=int, default=2,
                         help='The number of LSTM layers')
     parser.add_argument('--hidden_size', type=int, default=256,
                         help='The size of hidden/context layers')
@@ -185,7 +185,7 @@ if __name__ == '__main__':
             "max_steps": 100 if args.use_profiler else args.max_steps,
             "epochs": 1 if args.use_profiler else args.epochs,
             "dropout": args.dropout, 
-            "lstm_size": args.lstm_size,
+            "cells_size": args.cells_size,
             "hidden_size": args.hidden_size,
             "sequence_size": args.sequence_size,
             "batch_size": args.batch_size,
