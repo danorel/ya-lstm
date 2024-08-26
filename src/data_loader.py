@@ -9,8 +9,14 @@ class CorpusDataset(Dataset):
             x=np.array([char_to_index[char] for char in corpus]),
             window_shape=sequence_size
         )
+
         self.targets = np.ascontiguousarray(sequences_windows[:, 1:])
         self.sequences = np.ascontiguousarray(sequences_windows[:, :-1])
+
+        assert self.sequences.shape[1] == sequence_size - 1, \
+            f"Sequences should have length {sequence_size - 1}, got {self.sequences.shape[1]}"
+        assert self.targets.shape[1] == sequence_size - 1, \
+            f"Targets should have length {sequence_size - 1}, got {self.targets.shape[1]}"
 
     def __len__(self):
         return len(self.sequences)

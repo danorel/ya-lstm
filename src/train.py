@@ -41,7 +41,7 @@ def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: 
         "input_size": vocab_size,
         "output_size": vocab_size,
         "hidden_size": hyperparameters['hidden_size'],
-        "lstm_size": hyperparameters['lstm_size'],
+        "cells_size": hyperparameters['lstm_size'],
         "dropout": hyperparameters['dropout'],
         "device": device
     })
