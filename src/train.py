@@ -64,6 +64,9 @@ def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: 
     start_time = time.time()
     print(f"Training on {device} started at {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time))}")
 
+    best_loss = float('inf')
+    patience_counter = 0
+
     for epoch in tqdm(range(1, hyperparameters['epochs'] + 1)):
         epoch_loss = 0
         epoch_steps = 0
@@ -105,9 +108,25 @@ def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: 
                 trial.report(accuracy, epoch)
                 if trial.should_prune():
                     raise optuna.exceptions.TrialPruned()
+                
+            if loss < best_loss - hyperparameters['loss_patience']:
+                best_loss = loss
+                patience_counter = 0
+            else:
+                patience_counter += 1
+
+            if patience_counter > hyperparameters['steps_patience']:
+                early_stopping_dir = model_dir / epoch / 'early_stopping'
+                early_stopping_dir.mkdir(parents=True, exist_ok=True)
+                print(f"Stopping early at epoch {epoch}, step {step}. No improvement in loss for {hyperparameters['steps_patience']} steps.")
+                torch.save(model, early_stopping_dir / 'model.pt')
+                return accuracy_metric.compute().item() * 100
             
             if step % 100 == 0:
-                print(f"Epoch {epoch}/{hyperparameters['epochs']} (step = {step}): Loss = {loss:.4f}, Accuracy = {accuracy:.4f}")
+                print(f"Epoch {epoch}/{hyperparameters['epochs']} (step = {step}):\n\tLoss = {loss:.4f}\n\tAccuracy = {accuracy:.4f}")
+                checkpoint_dir = model_dir / epoch / step
+                checkpoint_dir.mkdir(parents=True, exist_ok=True)
+                torch.save(model, checkpoint_dir / 'model.pt')
 
             epoch_steps += 1
             if epoch_steps >= hyperparameters['max_steps']:
@@ -119,15 +138,15 @@ def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: 
             tensorboard.add_scalar('Accuracy/epoch', epoch_accuracy, epoch)
             tensorboard.add_scalar('Loss/epoch', epoch_loss, epoch)
         
-        print(f"Epoch {epoch} finished with Total Loss: {epoch_loss:.4f}, Accuracy: {epoch_accuracy:.4f}")
+        print(f"Epoch {epoch} finished!\n\tTotal Loss: {epoch_loss:.4f}\n\tAccuracy: {epoch_accuracy:.4f}")
 
-        torch.save(model, model_dir / f'{epoch}_state_dict.pth')
+        torch.save(model, model_dir / epoch / f'model.pt')
     
     end_time = time.time()
     total_time = end_time - start_time
     print(f"Training on {device} took {total_time:.2f} seconds")
 
-    torch.save(model, model_dir / 'final_state_dict.pth')
+    torch.save(model, model_dir / 'final' / 'model.pt')
 
     if use_tensorboard:
         tensorboard.flush()
@@ -191,7 +210,9 @@ if __name__ == '__main__':
             "batch_size": args.batch_size,
             "learning_rate": args.learning_rate,
             "weight_decay": args.weight_decay,
-            "accumulation_steps": args.accumulation_steps
+            "accumulation_steps": args.accumulation_steps,
+            'steps_patience': 10,
+            'loss_patience': 0.001
         },
         use_tensorboard=args.use_tensorboard
     )
