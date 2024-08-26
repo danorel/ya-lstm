@@ -1,2 +1,2 @@
 CORPUS_DIR = "corpus"
-MODELS_DIR = "models"
+MODELS_DIR = "model_repository"

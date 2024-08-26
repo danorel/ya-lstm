@@ -116,7 +116,7 @@ def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: 
                 patience_counter += 1
 
             if patience_counter > hyperparameters['steps_patience']:
-                early_stopping_dir = model_dir / epoch / 'early_stopping'
+                early_stopping_dir = model_dir / f'{epoch}' / 'early_stopping'
                 early_stopping_dir.mkdir(parents=True, exist_ok=True)
                 print(f"Stopping early at epoch {epoch}, step {step}. No improvement in loss for {hyperparameters['steps_patience']} steps.")
                 torch.save(model, early_stopping_dir / 'model.pt')
@@ -124,7 +124,7 @@ def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: 
             
             if step % 100 == 0:
                 print(f"Epoch {epoch}/{hyperparameters['epochs']} (step = {step}):\n\tLoss = {loss:.4f}\n\tAccuracy = {accuracy:.4f}")
-                checkpoint_dir = model_dir / epoch / step
+                checkpoint_dir = model_dir / f'{epoch}' / f'{step}'
                 checkpoint_dir.mkdir(parents=True, exist_ok=True)
                 torch.save(model, checkpoint_dir / 'model.pt')
 
@@ -140,7 +140,7 @@ def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: 
         
         print(f"Epoch {epoch} finished!\n\tTotal Loss: {epoch_loss:.4f}\n\tAccuracy: {epoch_accuracy:.4f}")
 
-        torch.save(model, model_dir / epoch / f'model.pt')
+        torch.save(model, model_dir / f'{epoch}' / f'model.pt')
     
     end_time = time.time()
     total_time = end_time - start_time
@@ -211,8 +211,8 @@ if __name__ == '__main__':
             "learning_rate": args.learning_rate,
             "weight_decay": args.weight_decay,
             "accumulation_steps": args.accumulation_steps,
-            'steps_patience': 10,
-            'loss_patience': 0.001
+            'steps_patience': 100,
+            'loss_patience': 0.0001
         },
         use_tensorboard=args.use_tensorboard
     )

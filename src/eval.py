@@ -10,7 +10,7 @@ from src.utils import one_hot_encoding
 
 def load_model(device: str, name: str) -> nn.Module:
     models_dir = pathlib.Path(MODELS_DIR)
-    filepath = models_dir / name / 'final_state_dict.pth'
+    filepath = models_dir / name / '1' / 'early_stopping' / 'model.pt'
     if not filepath.exists():
         raise RuntimeError("Not found pre-trained LSTM model")
     model: nn.Module = torch.load(filepath)

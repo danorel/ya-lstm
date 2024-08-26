@@ -14,8 +14,8 @@ def objective(use_tensorboard: bool, num_workers: int = 1):
             'num_workers': num_workers,
             'epochs': 1,
             'max_steps': 101,
-            'steps_patience': 10,
-            'loss_patience': 0.001
+            'steps_patience': 100,
+            'loss_patience': 0.0001
         }
         tune_hyperparameters = {
             'dropout': trial.suggest_float('dropout', 0.1, 0.5),

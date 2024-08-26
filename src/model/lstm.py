@@ -26,7 +26,6 @@ class LSTMCell(nn.Module):
     
     def forward(self, x, c_prev, h_prev):
         gates = self.x2h(x) + self.h2h(h_prev)
-        gates = gates.squeeze()
 
         forget_gate, input_gate, cell_gate, output_gate = gates.chunk(4, 1)
         
