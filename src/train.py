@@ -12,11 +12,11 @@ import pathlib
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 
-from src.constants import MODELS_DIR
+from src.constants import MODEL_ARCHIVE_DIR
 from src.corpus_loader import fetch_and_load_corpus
 from src.data_loader import create_dataloader
 from src.model import model_selector
-from src.utils import one_hot_encoding
+from src.utils import embedding_from_indices
 
 def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: t.Optional[optuna.Trial] = None, use_tensorboard: bool = False) -> float:
     use_optuna = trial is not None
@@ -53,8 +53,8 @@ def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: 
         weight_decay=hyperparameters['weight_decay']
     )
 
-    model_dir = pathlib.Path(MODELS_DIR) / model.name
-    model_dir.mkdir(parents=True, exist_ok=True)
+    model_archive_dir = pathlib.Path(MODEL_ARCHIVE_DIR) / model.name
+    model_archive_dir.mkdir(parents=True, exist_ok=True)
     
     accuracy_metric = torchmetrics.Accuracy(task='multiclass', num_classes=vocab_size).to(device)
     accumulation_steps = hyperparameters['accumulation_steps']
@@ -72,7 +72,7 @@ def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: 
         epoch_steps = 0
 
         for step, (sequences, targets) in enumerate(dataloader, 1):
-            embedding = one_hot_encoding(indices=sequences, vocab_size=vocab_size).to(device)
+            embedding = embedding_from_indices(indices=sequences, vocab_size=vocab_size).to(device)
             target = targets.to(device)
 
             logits = model(embedding)
@@ -116,7 +116,7 @@ def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: 
                 patience_counter += 1
 
             if patience_counter > hyperparameters['steps_patience']:
-                early_stopping_dir = model_dir / f'{epoch}' / 'early_stopping'
+                early_stopping_dir = model_archive_dir / f'{epoch}' / 'early_stopping'
                 early_stopping_dir.mkdir(parents=True, exist_ok=True)
                 print(f"Stopping early at epoch {epoch}, step {step}. No improvement in loss for {hyperparameters['steps_patience']} steps.")
                 torch.save(model, early_stopping_dir / 'model.pt')
@@ -124,7 +124,7 @@ def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: 
             
             if step % 100 == 0:
                 print(f"Epoch {epoch}/{hyperparameters['epochs']} (step = {step}):\n\tLoss = {loss:.4f}\n\tAccuracy = {accuracy:.4f}")
-                checkpoint_dir = model_dir / f'{epoch}' / f'{step}'
+                checkpoint_dir = model_archive_dir / f'{epoch}' / f'{step}'
                 checkpoint_dir.mkdir(parents=True, exist_ok=True)
                 torch.save(model, checkpoint_dir / 'model.pt')
 
@@ -140,13 +140,13 @@ def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: 
         
         print(f"Epoch {epoch} finished!\n\tTotal Loss: {epoch_loss:.4f}\n\tAccuracy: {epoch_accuracy:.4f}")
 
-        torch.save(model, model_dir / f'{epoch}' / f'model.pt')
+        torch.save(model, model_archive_dir / f'{epoch}' / f'model.pt')
     
     end_time = time.time()
     total_time = end_time - start_time
     print(f"Training on {device} took {total_time:.2f} seconds")
 
-    torch.save(model, model_dir / 'final' / 'model.pt')
+    torch.save(model, model_archive_dir / 'final' / 'model.pt')
 
     if use_tensorboard:
         tensorboard.flush()

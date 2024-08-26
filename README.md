@@ -109,6 +109,23 @@ python \
     --output_size 128
 ```
 
+## Deployment
+
+1. Export model from PyTorch to ONNX format:
+
+```
+python \
+    -m src.export \
+    --name gru \
+    --sequence_size 64
+```
+
+2. Serve ONNX model via Triton Inference Server:
+
+```
+docker run --gpus=1 --rm -p8000:8000 -p8001:8001 -p8002:8002 -v ./model_repository:/models nvcr.io/nvidia/tritonserver:22.08-py3 tritonserver --model-repository=/models
+```
+
 ## License
 
 [MIT](./LICENSE)
