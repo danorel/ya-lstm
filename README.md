@@ -33,13 +33,14 @@ python \
     --use_tensorboard \
     --name lstm \
     --epochs 20 \
+    --max_steps 1000 \
     --dropout 0.1 \
     --cells_size 2 \
     --hidden_size 256 \
     --sequence_size 64 \
     --batch_size 1024 \
     --learning_rate 0.01 \
-    --accumulation_steps 2
+    --accumulation_steps 3
 ```
 
 4. Evaluate LSTM agent via generation sampling on **custom** dataset with **pre-trained** model hyperparameters:
@@ -116,7 +117,6 @@ python \
 ```
 python \
     -m src.export \
-    --name gru \
     --sequence_size 64
 ```
 

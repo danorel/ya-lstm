@@ -24,6 +24,7 @@ def objective(use_tensorboard: bool, num_workers: int = 1):
             'sequence_size': trial.suggest_int('sequence_size', 16, 64),
             'batch_size': trial.suggest_int('batch_size', 128, 1024),
             'learning_rate': trial.suggest_float('learning_rate', 1e-5, 1e-1, log=True),
+            "gamma": trial.suggest_float('learning_rate', 1e-5, 1e-1, log=True),
             'weight_decay': trial.suggest_float('weight_decay', 1e-5, 1e-1, log=True),
             'accumulation_steps': trial.suggest_int('accumulation_steps', 1, 5)
         }

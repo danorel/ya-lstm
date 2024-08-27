@@ -6,6 +6,7 @@ import torch
 import torchmetrics
 import torch.nn as nn
 import torch.optim as optim
+import torch.optim.lr_scheduler as lr_scheduler
 import typing as t
 import pathlib
 
@@ -52,6 +53,7 @@ def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: 
         lr=hyperparameters['learning_rate'],
         weight_decay=hyperparameters['weight_decay']
     )
+    scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=hyperparameters['gamma'])
 
     model_archive_dir = pathlib.Path(MODEL_ARCHIVE_DIR) / model.name
     model_archive_dir.mkdir(parents=True, exist_ok=True)
@@ -132,6 +134,8 @@ def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: 
             if epoch_steps >= hyperparameters['max_steps']:
                 break
 
+        scheduler.step()
+
         epoch_accuracy = accuracy_metric.compute().item() * 100
 
         if use_tensorboard:
@@ -183,6 +187,8 @@ if __name__ == '__main__':
                         help='Number of samples in each batch')
     parser.add_argument('--learning_rate', type=float, default=0.001,
                         help='Learning rate parameter of LSTM optimizer (Adam is a default setting)')
+    parser.add_argument('--gamma', type=float, default=0.1,
+                        help='Gamma parameter of LSTM optimizer\'s scheduler (Adam is a default setting) which serves for training stabilization')
     parser.add_argument('--weight_decay', type=float, default=0.001,
                         help='Weight decay parameter of LSTM optimizer (Adam is a default setting) which serves for weights normalization to avoid overfitting')
     parser.add_argument('--accumulation_steps', type=int, default=1,
@@ -209,6 +215,7 @@ if __name__ == '__main__':
             "sequence_size": args.sequence_size,
             "batch_size": args.batch_size,
             "learning_rate": args.learning_rate,
+            "gamma": args.gamma,
             "weight_decay": args.weight_decay,
             "accumulation_steps": args.accumulation_steps,
             'steps_patience': 100,
