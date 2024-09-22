@@ -13,11 +13,11 @@ import pathlib
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 
-from src.constants import MODEL_ARCHIVE_DIR
+from src.constants import MODEL_ARCHIVE_DIR, VOCAB_SIZE, PAD_CHAR
 from src.corpus_loader import fetch_and_load_corpus
 from src.data_loader import create_dataloader
 from src.model import model_selector
-from src.utils import embedding_from_indices
+from src.utils import embedding_from_indices, index_from_char
 
 def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: t.Optional[optuna.Trial] = None, use_tensorboard: bool = False) -> float:
     use_optuna = trial is not None
@@ -26,28 +26,23 @@ def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: 
     if use_tensorboard:
         tensorboard = SummaryWriter()
 
-    vocab = sorted(set(corpus))
-    vocab_size = len(vocab)
-    char_to_index = {char: idx for idx, char in enumerate(vocab)}
-
     dataloader = create_dataloader(
         corpus,
-        char_to_index,
         hyperparameters['sequence_size'],
         hyperparameters['batch_size'],
         hyperparameters['num_workers']
     )
 
     model: nn.Module = model_selector[name](**{
-        "input_size": vocab_size,
-        "output_size": vocab_size,
+        "input_size": VOCAB_SIZE,
+        "output_size": VOCAB_SIZE,
         "hidden_size": hyperparameters['hidden_size'],
         "cells_size": hyperparameters['cells_size'],
         "dropout": hyperparameters['dropout'],
         "device": device
     })
     
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss(ignore_index=index_from_char(PAD_CHAR))
     optimizer = optim.Adam(
         model.parameters(),
         lr=hyperparameters['learning_rate'],
@@ -58,7 +53,7 @@ def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: 
     model_archive_dir = pathlib.Path(MODEL_ARCHIVE_DIR) / model.name
     model_archive_dir.mkdir(parents=True, exist_ok=True)
     
-    accuracy_metric = torchmetrics.Accuracy(task='multiclass', num_classes=vocab_size).to(device)
+    accuracy_metric = torchmetrics.Accuracy(task='multiclass', num_classes=VOCAB_SIZE).to(device)
     accumulation_steps = hyperparameters['accumulation_steps']
 
     model.train()
@@ -74,12 +69,12 @@ def train(device: torch.device, corpus: str, name: str, hyperparameters, trial: 
         epoch_steps = 0
 
         for step, (sequences, targets) in enumerate(dataloader, 1):
-            embedding = embedding_from_indices(indices=sequences, vocab_size=vocab_size).to(device)
+            embedding = embedding_from_indices(indices=sequences).to(device)
             target = targets.to(device)
 
             logits = model(embedding)
 
-            logits = logits.view(-1, vocab_size)  # Flatten logits to shape [batch_size * sequence_size, vocab_size]
+            logits = logits.view(-1, VOCAB_SIZE)  # Flatten logits to shape [batch_size * sequence_size, vocab_size]
             target = target.view(-1)  # Flatten target to shape [batch_size * sequence_size]
 
             assert logits.shape[0] == target.shape[0], f"Shape mismatch: {logits.shape[0]} != {target.shape[0]}"
@@ -218,8 +213,8 @@ if __name__ == '__main__':
             "gamma": args.gamma,
             "weight_decay": args.weight_decay,
             "accumulation_steps": args.accumulation_steps,
-            'steps_patience': 100,
-            'loss_patience': 0.0001
+            'steps_patience': 1000,
+            'loss_patience': 0.00001
         },
         use_tensorboard=args.use_tensorboard
     )

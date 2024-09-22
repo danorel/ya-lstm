@@ -112,18 +112,19 @@ python \
 
 ## Deployment
 
-1. Export model from PyTorch to ONNX format:
+1. Export LSTM model from PyTorch to ONNX format:
 
-```
+```bash
 python \
     -m src.export \
+    --name lstm \
     --sequence_size 64
 ```
 
 2. Serve ONNX model via Triton Inference Server:
 
 ```
-docker run --gpus=1 --rm -p8000:8000 -p8001:8001 -p8002:8002 -v ./model_repository:/models nvcr.io/nvidia/tritonserver:22.08-py3 tritonserver --model-repository=/models
+docker run --rm -p8000:8000 -p8001:8001 -p8002:8002 -v ./model_repository:/models nvcr.io/nvidia/tritonserver:22.08-py3 tritonserver --model-repository=/models
 ```
 
 ## License

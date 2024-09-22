@@ -3,10 +3,12 @@ import torch
 
 from torch.utils.data import DataLoader, Dataset
 
+from src.utils import index_from_char
+
 class CorpusDataset(Dataset):
-    def __init__(self, corpus, char_to_index, sequence_size):
+    def __init__(self, corpus, sequence_size):
         sequences_windows = np.lib.stride_tricks.sliding_window_view(
-            x=np.array([char_to_index[char] for char in corpus]),
+            x=np.array([index_from_char(char) for char in corpus]),
             window_shape=sequence_size
         )
 
@@ -24,7 +26,7 @@ class CorpusDataset(Dataset):
     def __getitem__(self, idx):
         return torch.from_numpy(self.sequences[idx]), torch.from_numpy(self.targets[idx])
 
-def create_dataloader(corpus: str, char_to_index, sequence_size, batch_size, num_workers: int = 0):
-    dataset = CorpusDataset(corpus, char_to_index, sequence_size)
+def create_dataloader(corpus: str, sequence_size, batch_size, num_workers: int = 0):
+    dataset = CorpusDataset(corpus, sequence_size)
     dataloader = DataLoader(dataset, batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
     return dataloader

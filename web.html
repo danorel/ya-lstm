@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Triton Inference Web Interface</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            border-radius: 8px;
+            background-color: #f4f4f4;
+        }
+
+        label {
+            font-weight: bold;
+        }
+
+        input, button {
+            padding: 10px;
+            margin: 10px 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .response {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Triton Inference</h1>
+    <form id="inference-form">
+        <label for="model">Model Name:</label>
+        <input type="text" id="model" name="model" value="lstm" required>
+
+        <label for="prompt">Prompt Text:</label>
+        <input type="text" id="prompt" name="prompt" placeholder="Enter your prompt here" required>
+
+        <label for="sequence_size">Sequence Size:</label>
+        <input type="number" id="sequence_size" name="sequence_size" value="16" min="1" required>
+
+        <button type="submit">Generate Next Character</button>
+    </form>
+
+    <div class="response">
+        <h2>Inference Result:</h2>
+        <p id="result">Awaiting response...</p>
+    </div>
+
+    <script>
+        document.getElementById('inference-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const model = document.getElementById('model').value;
+            const prompt = document.getElementById('prompt').value;
+            const sequenceSize = document.getElementById('sequence_size').value;
+
+            try {
+                const response = await fetch(`http://localhost:4000/infer`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model: model,
+                        prompt: prompt,
+                        sequenceSize: sequenceSize,
+                    })
+                });
+
+                const data = await response.json();
+            const nextChar = data.char;  // Assuming the backend returns the next character in 'char'
+
+                document.getElementById('result').textContent = `Next character: ${nextChar}`;
+            } catch (error) {
+                document.getElementById('result').textContent = 'Error during inference: ' + error;
+            }
+        });
+    </script>
+</body>
+</html>
