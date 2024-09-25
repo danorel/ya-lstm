@@ -1,55 +1,97 @@
 import argparse
-import copy
 import torch
 import torch.nn as nn
 
-from src.constants import PAD_CHAR
-from src.model import load_model_from_archive
-from src.utils import char_from_index, embedding_from_indices, embedding_from_prompt
+from src.core.model import load_model_from_archive
+from src.core.corpus_loader import fetch_and_load_corpus
 
-def generate(device: torch.device, model: nn.Module, prompt: str, sequence_size: int = 16, output_size: int = 100) -> str:
-    chars = copy.deepcopy(prompt.split('\s'))
+# character-level specific imports
+from src.character_level.utils import (
+    create_prompt as create_character_prompt,
+    make_corpus_operations as make_character_operations
+)
 
-    if len(prompt) < sequence_size:
-        pad_size = sequence_size - len(prompt)
-        padded_prompt = [PAD_CHAR] * pad_size + list(prompt)
+# word-level specific imports
+from src.word_level.utils import (
+    create_prompt as create_word_prompt,
+    make_corpus_operations as make_word_operations
+)
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def get_config(model_type: str, corpus: str):
+    if model_type == 'character':
+        operations = make_character_operations(corpus)
+        create_prompt = create_character_prompt
+    elif model_type == 'word':
+        operations = make_word_operations(corpus)
+        create_prompt = create_word_prompt
     else:
-        padded_prompt = list(prompt[-sequence_size:])
+        raise ValueError(f"Unknown model type: {model_type}")
+    
+    (
+        create_embedding_from_indices,
+        create_embedding_from_prompt,
+        token_to_index,
+        index_to_token,
+        vocab,
+        vocab_size
+    ) = operations
 
-    sequence_embedding = embedding_from_prompt(padded_prompt)
-    sequence_embedding = sequence_embedding.unsqueeze(0).to(device)
+    return {
+        'create_prompt': create_prompt,
+        'create_embedding_from_prompt': create_embedding_from_prompt,
+        'create_embedding_from_indices': create_embedding_from_indices,
+        'index_to_token': index_to_token,
+    }
 
-    model.eval()
+def make_evaluator(
+    model: nn.Module,
+    create_prompt,
+    create_embedding_from_prompt,
+    create_embedding_from_indices,
+    index_to_token: dict,
+):
+    def eval(prompt: str, sequence_size, output_size: int = 255) -> str:
+        padded_prompt = create_prompt(prompt, sequence_size)
 
-    char = None
-    i = 0
-    while i < (output_size - len(prompt)) and char != '\n':
-        with torch.no_grad():
-            logits = model(sequence_embedding)
-            logits_probs = torch.softmax(logits[:, -1, :], dim=-1).squeeze()
+        sequence_embedding = create_embedding_from_prompt(padded_prompt)
+        sequence_embedding = sequence_embedding.unsqueeze(0).to(device)
 
-        char_idx = torch.multinomial(logits_probs, 1).item()
-        char = char_from_index(char_idx)
-        chars.append(char)
+        model.eval()
 
-        char_embedding = embedding_from_indices(torch.tensor([char_idx]))
-        char_embedding = char_embedding.unsqueeze(0).to(device)
-        sequence_embedding = torch.cat((sequence_embedding[:, -sequence_size+1:, :], char_embedding), dim=1)
+        token = None
+        i = 0
+        while i < (output_size - len(prompt)) and token != '\n':
+            with torch.no_grad():
+                logits = model(sequence_embedding)
+                logits_probs = torch.softmax(logits[:, -1, :], dim=-1).squeeze()
 
-        i += 1
+            token_idx = torch.multinomial(logits_probs, 1).item()
+            token = index_to_token[token_idx]
+            padded_prompt.append(token)
 
-    return ''.join(chars)
+            char_embedding = create_embedding_from_indices(torch.tensor([token_idx]))
+            char_embedding = char_embedding.unsqueeze(0).to(device)
+            sequence_embedding = torch.cat((sequence_embedding[:, -sequence_size+1:, :], char_embedding), dim=1)
 
-def prompt(device: torch.device, name: str, text: str, sequence_size: int, output_size: int):
-    model = load_model_from_archive(device, name)
+            i += 1
 
-    return generate(device, model, text.lower(), sequence_size, output_size)
+        return padded_prompt
+    
+    return eval
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Generate text based on a arbitrary corpus.")
     
-    parser.add_argument('--name', type=str, required=True, choices=['lstm', 'gru'],
+    parser.add_argument('--model_name', type=str, required=True, choices=['lstm', 'gru'],
                         help='Model to use as a basis for text generation (e.g., "lstm")')
+    parser.add_argument('--model_type', type=str, required=True, choices=['character', 'word'],
+                        help='Specify whether to train on a character-level or word-level model.')
+    parser.add_argument('--url', type=str, default='https://ocw.mit.edu/ans7870/6/6.006/s08/lecturenotes/files/t8.shakespeare.txt',
+                        help='URL to fetch the text corpus')
     parser.add_argument('--prompt_text', type=str, required=True,
                         help='Text to use as a basis for text generation (e.g., "Forecasting for you")')
     parser.add_argument('--sequence_size', type=int, default=16,
@@ -59,6 +101,9 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
-    print(prompt(device, args.name, args.prompt_text, args.sequence_size, args.output_size))
+    eval = make_evaluator(
+        model=load_model_from_archive(device, args.model_name, args.model_type)
+        **get_config(args.model_type, corpus=fetch_and_load_corpus(args.url))
+    )
+
+    print(eval(args.prompt_text, args.sequence_size, args.output_size))

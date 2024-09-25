@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import typing as t
 
-from src.constants import MODEL_ARCHIVE_DIR, MODEL_REPOSITORY_DIR
+from src.core.constants import MODEL_ARCHIVE_DIR, MODEL_REPOSITORY_DIR
 from .lstm import LSTM 
 from .gru import GRU
 
@@ -12,10 +12,10 @@ model_selector: t.Dict[str, nn.Module] = {
     for model in [LSTM, GRU]
 }
 
-def load_model_from_archive(device: torch.device, name: str) -> nn.Module:
+def load_model_from_archive(device: torch.device, model_name: str, model_type: str) -> nn.Module:
     model_archive_dir = pathlib.Path(MODEL_ARCHIVE_DIR)
     model_archive_dir.mkdir(parents=True, exist_ok=True)
-    model_file = model_archive_dir / name / '2' / '100' / 'model.pt'
+    model_file = model_archive_dir / model_name / model_type / '1' / '300' / 'model.pt'
     if not model_file.exists():
         raise RuntimeError("Not found pre-trained RNN-based model")
     model: nn.Module = torch.load(model_file)
@@ -23,9 +23,9 @@ def load_model_from_archive(device: torch.device, name: str) -> nn.Module:
     return model
 
 
-def load_model_to_repository(model: nn.Module, example_embedding: torch.tensor, name: str, version: int) -> nn.Module:
+def load_model_to_repository(model: nn.Module, example_embedding: torch.tensor, model_name: str, model_type: str, version: int) -> nn.Module:
     model_repository_dir = pathlib.Path(MODEL_REPOSITORY_DIR)
-    model_file_dir = model_repository_dir / name / f"{version}"
+    model_file_dir = model_repository_dir / f"{model_name}-{model_type}" / f"{version}"
     model_file_dir.mkdir(parents=True, exist_ok=True)
     torch.onnx.export(
         model,

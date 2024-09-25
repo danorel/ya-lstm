@@ -30,9 +30,10 @@ python \
 ```bash
 python \
     -m src.train \
+    --model_type character \
     --use_tensorboard \
     --name lstm \
-    --epochs 20 \
+    --epochs 10 \
     --max_steps 1000 \
     --dropout 0.1 \
     --cells_size 2 \
@@ -48,6 +49,7 @@ python \
 ```bash
 python \
     -m src.eval \
+    --model_type word \
     --name lstm \
     --prompt_text 'Hello my dear darling and princess, ' \
     --sequence_size 64 \
