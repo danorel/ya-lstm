@@ -78,7 +78,7 @@ if __name__ == '__main__':
             "gamma": args.gamma,
             "weight_decay": args.weight_decay,
             "accumulation_steps": args.accumulation_steps,
-            'steps_patience': 1000,
-            'loss_patience': 0.00001
+            'steps_patience': 100,
+            'loss_patience': 0.0001
         }
     )

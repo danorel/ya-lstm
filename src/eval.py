@@ -8,13 +8,13 @@ from src.core.model import load_model_from_archive
 
 # character-level specific imports
 from src.character_level.utils import (
-    create_prompt as create_character_prompt,
+    input_to_padded as character_to_padded,
     make_corpus_operations as make_character_operations
 )
 
 # word-level specific imports
 from src.word_level.utils import (
-    create_prompt as create_word_prompt,
+    input_to_padded as word_to_padded,
     make_corpus_operations as make_word_operations
 )
 
@@ -24,55 +24,82 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def get_config(model_type: str, corpus: str):
     if model_type == 'character':
         operations = make_character_operations(corpus)
-        create_prompt = create_character_prompt
+        input_to_padded = character_to_padded
     elif model_type == 'word':
         operations = make_word_operations(corpus)
-        create_prompt = create_word_prompt
+        input_to_padded = word_to_padded
     else:
         raise ValueError(f"Unknown model type: {model_type}")
     
     return {
-        'create_prompt': create_prompt,
-        'create_input_from_prompt': operations['create_input_from_prompt'],
+        'input_to_padded': input_to_padded,
+        'input_to_index': operations['input_to_index'],
         'index_to_token': operations['index_to_token'],
+        'token_to_index': operations['token_to_index']
     }
+
+def apply_temperature(logits_probs, temperature=1.0):
+    logits_probs = logits_probs / temperature
+    return torch.softmax(logits_probs, dim=-1)
+
+def apply_repetition_penalty(logits_probs, generated_indices, penalty=1.0):
+    for index in generated_indices:
+        logits_probs[index] /= penalty
+    return logits_probs
+
+def top_p_sampling(logits_probs, p = 0.9):
+    sorted_probs, sorted_indices = torch.sort(logits_probs, descending=True)
+    cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
+    
+    # Find the cutoff where cumulative probability exceeds p
+    cutoff_index = torch.where(cumulative_probs > p)[0][0].item()
+    
+    top_p_probs = sorted_probs[:cutoff_index + 1]
+    top_p_probs = top_p_probs / top_p_probs.sum()
+    top_p_indices = sorted_indices[:cutoff_index + 1]
+
+    token_index = torch.multinomial(top_p_probs, 1).item()
+
+    return top_p_indices[token_index].item()
 
 def make_evaluator(
     model: nn.Module,
-    create_prompt,
-    create_input_from_prompt,
+    input_to_padded,
+    input_to_index,
     index_to_token: dict,
+    token_to_index: dict
 ):
-    def eval(prompt: str, sequence_size, output_size: int = 255) -> str:
-        output_prompt = prompt.split()
-        padded_prompt = create_prompt(prompt, sequence_size)
+    def eval(input: str, sequence_size, output_size: int = 255) -> str:
+        output = input.split()
+        padded_input = input_to_padded(input, sequence_size)
 
-        sequence = create_input_from_prompt(padded_prompt)
-        sequence = sequence.unsqueeze(0).to(device)
+        indices = input_to_index(padded_input).to(device)
 
         model.eval()
 
         token = None
         i = 0
-        while i < (output_size - len(prompt)) and token != END_OF_THOUGHT_TOKEN:
+        while i < (output_size - len(input)) and token != END_OF_THOUGHT_TOKEN:
             with torch.no_grad():
-                logits = model(sequence)
-                logits_probs = torch.softmax(logits[:, -1, :], dim=-1).squeeze()
+                logits = model(indices)
 
-            token_idx = torch.multinomial(logits_probs, 1).item()
-            token = index_to_token[token_idx]
+                logits_probs = torch.softmax(logits[:, -1, :], dim=-1).squeeze()
+                logits_probs = apply_temperature(logits_probs, temperature=1.0)
+                logits_probs = apply_repetition_penalty(logits_probs, [token_to_index.get(char, token_to_index[UNKNOWN_TOKEN]) for char in output], penalty=1.0)
+
+                token_index = top_p_sampling(logits_probs)
+                token = index_to_token[token_index]
 
             if token != UNKNOWN_TOKEN:
-                output_prompt.append(token)
+                output.append(token)
 
-            symbol = create_input_from_prompt(token)
-            symbol = symbol.unsqueeze(0).to(device)
+            next_index = input_to_index(token).to(device)
 
-            sequence = torch.cat((sequence[:, -sequence_size+1:], symbol), dim=1)
+            indices = torch.cat((indices[:, -sequence_size+1:], next_index), dim=1)
 
             i += 1
 
-        return ' '.join(output_prompt)
+        return ' '.join(output)
     
     return eval
 

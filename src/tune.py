@@ -41,7 +41,7 @@ def objective(model_name: str, model_type: str, use_tensorboard: bool, num_worke
             hyperparameters={
                 'num_workers': num_workers,
                 'epochs': 1,
-                'max_steps': 101,
+                'max_steps': 51,
                 'steps_patience': 100,
                 'loss_patience': 0.0001,
                 **hyperparameters

@@ -12,19 +12,19 @@ def make_corpus_operations(corpus: str) -> dict:
     word_to_index = {w: i for i, w in enumerate(vocab)}
     index_to_word = {i: w for i, w in enumerate(vocab)}
 
-    def create_input_from_prompt(prompt: list[str]) -> torch.Tensor:
-        indices = torch.tensor([word_to_index.get(word, word_to_index[UNKNOWN_TOKEN]) for word in prompt]).long()
-        return indices
+    def input_to_index(prompt: list[str]) -> torch.Tensor:
+        indices = [word_to_index.get(word, word_to_index[UNKNOWN_TOKEN]) for word in prompt]
+        return torch.tensor(indices).long().unsqueeze(0)
     
     return {
-        'create_input_from_prompt': create_input_from_prompt,
-        'token_to_index': word_to_index,
+        'input_to_index': input_to_index,
         'index_to_token': index_to_word,
+        'token_to_index': word_to_index,
         'vocab': vocab,
         'vocab_size': vocab_size
     }
 
-def create_prompt(prompt: str, sequence_size: int) -> list[str]:
+def input_to_padded(prompt: str, sequence_size: int) -> list[str]:
     words = prompt.split()
     if len(words) < sequence_size:
         padding_size = sequence_size - len(words)

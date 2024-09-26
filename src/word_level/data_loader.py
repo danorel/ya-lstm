@@ -17,19 +17,19 @@ class WordDataset(Dataset):
         )
 
         self.targets = np.ascontiguousarray(sequences_windows[:, 1:])
-        self.sequences = np.ascontiguousarray(sequences_windows[:, :-1])
+        self.indices = np.ascontiguousarray(sequences_windows[:, :-1])
 
-        assert self.sequences.shape[1] == sequence_size - 1, \
-            f"Sequences should have length {sequence_size - 1}, got {self.sequences.shape[1]}"
+        assert self.indices.shape[1] == sequence_size - 1, \
+            f"Sequences should have length {sequence_size - 1}, got {self.indices.shape[1]}"
         assert self.targets.shape[1] == sequence_size - 1, \
             f"Targets should have length {sequence_size - 1}, got {self.targets.shape[1]}"
 
     def __len__(self):
-        return len(self.sequences)
+        return len(self.indices)
 
     def __getitem__(self, idx):
         return (
-            torch.from_numpy(self.sequences[idx]).long().to(self.device),
+            torch.from_numpy(self.indices[idx]).long().to(self.device),
             torch.from_numpy(self.targets[idx]).long().to(self.device)
         )
 

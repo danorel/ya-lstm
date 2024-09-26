@@ -1,5 +1,4 @@
 import torch
-import torch.nn.functional as F
 
 from src.core.constants import END_OF_THOUGHT_TOKEN, PAD_TOKEN, UNKNOWN_TOKEN
 
@@ -13,19 +12,19 @@ def make_corpus_operations(corpus: str):
     char_to_index = {c: i for i, c in enumerate(vocab)}
     index_to_char = {i: c for i, c in enumerate(vocab)}
 
-    def create_input_from_prompt(prompt: str) -> torch.Tensor:
-        indices = torch.tensor([char_to_index.get(char, char_to_index[UNKNOWN_TOKEN]) for char in prompt]).long()
-        return indices
+    def input_to_index(prompt: str) -> torch.Tensor:
+        indices = [char_to_index.get(char, char_to_index[UNKNOWN_TOKEN]) for char in prompt]
+        return torch.tensor(indices).long().unsqueeze(0)
 
     return {
-        'create_input_from_prompt': create_input_from_prompt,
-        'token_to_index': char_to_index,
+        'input_to_index': input_to_index,
         'index_to_token': index_to_char,
+        'token_to_index': char_to_index,
         'vocab': vocab,
         'vocab_size': vocab_size
     }
 
-def create_prompt(prompt: str, sequence_size: int) -> list[str]:
+def input_to_padded(prompt: str, sequence_size: int) -> list[str]:
     if len(prompt) < sequence_size:
         padding_size = sequence_size - len(prompt)
         padded_prompt = [PAD_TOKEN] * padding_size + list(prompt)

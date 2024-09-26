@@ -160,7 +160,7 @@ def make_trainer(
                     torch.save(model, early_stopping_dir / 'model.pt')
                     return accuracy_metric.compute().item() * 100
                 
-                if step % 100 == 0:
+                if step % 10 == 0:
                     print(f"Epoch {epoch}/{hyperparameters['epochs']} (step = {step}):\n\tLoss = {loss:.4f}\n\tAccuracy = {accuracy:.4f}")
                     checkpoint_dir = model_archive_dir / f'{epoch}' / f'{step}'
                     checkpoint_dir.mkdir(parents=True, exist_ok=True)

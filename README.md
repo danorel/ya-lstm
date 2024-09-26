@@ -30,10 +30,10 @@ python \
 ```bash
 python \
     -m src.train \
-    --model_name lstm \
-    --model_type character \
+    --model_name gru \
+    --model_type word \
     --use_tensorboard \
-    --epochs 10 \
+    --epochs 5 \
     --max_steps 1000 \
     --dropout 0.1 \
     --cells_size 3 \
