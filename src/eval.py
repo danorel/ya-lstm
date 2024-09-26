@@ -38,11 +38,11 @@ def get_config(model_type: str, corpus: str):
         'token_to_index': operations['token_to_index']
     }
 
-def apply_temperature(logits_probs, temperature: float = 1.0):
-    logits_probs = logits_probs / temperature
+def apply_temperature(logits_probs, temperature: float = 0.0):
+    logits_probs = logits_probs / (temperature + 1e-6)
     return torch.softmax(logits_probs, dim=-1)
 
-def apply_repetition_penalty(logits_probs, generated_indices, penalty=1.0):
+def apply_repetition_penalty(logits_probs, generated_indices, penalty: float = 1.0):
     for index in generated_indices:
         logits_probs[index] /= penalty
     return logits_probs
@@ -91,8 +91,8 @@ def make_evaluator(
                 logits = model(indices)
 
                 logits_probs = torch.softmax(logits[:, -1, :], dim=-1).squeeze()
-                logits_probs = apply_temperature(logits_probs, temperature=1.0)
-                logits_probs = apply_repetition_penalty(logits_probs, [token_to_index.get(char, token_to_index[UNKNOWN_TOKEN]) for char in output], penalty=1.0)
+                # logits_probs = apply_temperature(logits_probs, temperature=0.0)
+                # logits_probs = apply_repetition_penalty(logits_probs, [token_to_index.get(char, token_to_index[UNKNOWN_TOKEN]) for char in output], penalty=1.0)
 
                 token_index = top_k_sampling(logits_probs, k=10)
                 token = index_to_token[token_index]

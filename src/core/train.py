@@ -40,6 +40,20 @@ def get_config(model_type, corpus: str):
         'pad_index': operations['token_to_index'][PAD_TOKEN]
     }
 
+def calculate_class_weights(device, dataloader, vocab_size):
+    class_counts = torch.zeros(vocab_size, dtype=torch.long)
+
+    # Loop through the dataloader to count class occurrences
+    for _, target in dataloader:
+        unique, counts = torch.unique(target, return_counts=True)
+        class_counts[unique] += counts
+
+    # Calculate the weights: Inverse of class frequencies
+    total_samples = class_counts.sum()
+    class_weights = total_samples / (class_counts + 1e-6)  # Add epsilon to avoid division by zero
+
+    return class_weights.to(device)
+
 def make_trainer(
     create_dataloader,
     token_to_index: dict,
@@ -86,7 +100,10 @@ def make_trainer(
 
         model: nn.Module = model_selector[model_name](**model_config)
 
-        criterion = nn.CrossEntropyLoss(ignore_index=pad_index)
+        criterion = nn.CrossEntropyLoss(
+            ignore_index=pad_index,
+            weight=calculate_class_weights(device, dataloader, vocab_size),
+        )
         optimizer = optim.Adam(
             model.parameters(),
             lr=hyperparameters['learning_rate'],
@@ -112,11 +129,11 @@ def make_trainer(
             epoch_loss = 0
             epoch_steps = 0
 
-            for step, (sequences, target) in enumerate(dataloader, 1):
-                logits = model(sequences)
+            for step, (indices, target) in enumerate(dataloader, 1):
+                logits = model(indices)
 
-                logits = logits.view(-1, vocab_size)  # Flatten logits to shape [batch_size * sequence_size, vocab_size]
-                target = target.view(-1)  # Flatten target to shape [batch_size * sequence_size]
+                logits = logits.view(-1, vocab_size) # [batch_size * sequence_size, vocab_size]
+                target = target.view(-1)             # [batch_size * sequence_size]
 
                 assert logits.shape[0] == target.shape[0], f"Shape mismatch: {logits.shape[0]} != {target.shape[0]}"
 
@@ -126,7 +143,7 @@ def make_trainer(
                 loss.backward()
 
                 if (step % accumulation_steps) == 0:
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)  # Gradient clipping
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                     optimizer.step()
                     optimizer.zero_grad()
                 

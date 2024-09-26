@@ -55,7 +55,7 @@ class LSTM(nn.Module):
         super(LSTM, self).__init__()
         self.device = device
         self.hidden_size = hidden_size
-        self.embedding = nn.Embedding(input_size, embedding_size).to(self.device)
+        self.embedding = nn.Embedding(input_size, embedding_size).to(device)
         self.cells = nn.ModuleList([
             LSTMCell(
                 input_size=embedding_size if k == 0 else hidden_size,
@@ -64,8 +64,8 @@ class LSTM(nn.Module):
             ) 
             for k in range(cells_size)
         ])
-        self.dropout = nn.Dropout(dropout).to(self.device)
-        self.decoder = nn.Linear(hidden_size, output_size).to(self.device)
+        self.dropout = nn.Dropout(dropout).to(device)
+        self.decoder = nn.Linear(hidden_size, output_size).to(device)
         self._init_weights()
     
     def _init_weights(self):
@@ -85,10 +85,12 @@ class LSTM(nn.Module):
         x = self.embedding(x)
         for t in range(sequence_size):
             i_t = x[:, t, :]
-            for lstm in self.cells:
+            for idx, lstm in enumerate(self.cells):
                 c_t, h_t = lstm(i_t, c_t, h_t)
                 i_t = h_t
+                if idx < len(self.cells) - 1:
+                    i_t = self.dropout(i_t)
             outs[:, t, :] = i_t
-        out = self.decoder(outs)
+        out = self.decoder(self.dropout(outs))
         
         return out

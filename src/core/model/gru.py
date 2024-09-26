@@ -55,7 +55,7 @@ class GRU(nn.Module):
         super(GRU, self).__init__()
         self.device = device
         self.hidden_size = hidden_size
-        self.embedding = nn.Embedding(input_size, embedding_size).to(self.device)
+        self.embedding = nn.Embedding(input_size, embedding_size).to(device)
         self.cells = nn.ModuleList([
             GRUCell(
                 input_size=embedding_size if k == 0 else hidden_size,
@@ -64,14 +64,17 @@ class GRU(nn.Module):
             )
             for k in range(cells_size)
         ])
+        self.dropout = nn.Dropout(dropout).to(device)
         self.decoder = nn.Linear(hidden_size, output_size).to(device)
         self.init_weights()
 
-    def init_weights(self):
+    def _init_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight)
                 nn.init.zeros_(m.bias)
+            elif isinstance(m, nn.Embedding):
+                nn.init.xavier_uniform_(m.weight)
 
     def forward(self, x: torch.tensor):
         batch_size = x.size(0)
@@ -87,6 +90,6 @@ class GRU(nn.Module):
                 h_t = gru(i_t, h_t)
                 i_t = h_t
             outs[:, t, :] = i_t
-        out = self.decoder(outs)
+        out = self.decoder(self.dropout(outs))
 
         return out

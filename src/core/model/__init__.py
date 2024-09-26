@@ -15,7 +15,7 @@ model_selector: t.Dict[str, nn.Module] = {
 def load_model_from_archive(device: torch.device, model_name: str, model_type: str) -> nn.Module:
     model_archive_dir = pathlib.Path(MODEL_ARCHIVE_DIR)
     model_archive_dir.mkdir(parents=True, exist_ok=True)
-    model_file = model_archive_dir / model_name / model_type / '1' / '100' / 'model.pt'
+    model_file = model_archive_dir / model_name / model_type / '1' / '50' / 'model.pt'
     if not model_file.exists():
         raise RuntimeError("Not found pre-trained RNN-based model")
     model: nn.Module = torch.load(model_file)
