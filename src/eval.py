@@ -38,7 +38,7 @@ def get_config(model_type: str, corpus: str):
         'token_to_index': operations['token_to_index']
     }
 
-def apply_temperature(logits_probs, temperature=1.0):
+def apply_temperature(logits_probs, temperature: float = 1.0):
     logits_probs = logits_probs / temperature
     return torch.softmax(logits_probs, dim=-1)
 
@@ -47,11 +47,18 @@ def apply_repetition_penalty(logits_probs, generated_indices, penalty=1.0):
         logits_probs[index] /= penalty
     return logits_probs
 
-def top_p_sampling(logits_probs, p = 0.9):
+def top_k_sampling(logits_probs, k: int = 10):
+    top_k_probs, top_k_indices = torch.topk(logits_probs, k)
+    top_k_probs = top_k_probs / top_k_probs.sum()
+
+    token_index = torch.multinomial(top_k_probs, 1).item()
+
+    return top_k_indices[token_index].item()
+
+def top_p_sampling(logits_probs, p: float = 0.9):
     sorted_probs, sorted_indices = torch.sort(logits_probs, descending=True)
     cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
     
-    # Find the cutoff where cumulative probability exceeds p
     cutoff_index = torch.where(cumulative_probs > p)[0][0].item()
     
     top_p_probs = sorted_probs[:cutoff_index + 1]
@@ -70,7 +77,7 @@ def make_evaluator(
     token_to_index: dict
 ):
     def eval(input: str, sequence_size, output_size: int = 255) -> str:
-        output = input.split()
+        output = input.lower().split()
         padded_input = input_to_padded(input, sequence_size)
 
         indices = input_to_index(padded_input).to(device)
@@ -79,7 +86,7 @@ def make_evaluator(
 
         token = None
         i = 0
-        while i < (output_size - len(input)) and token != END_OF_THOUGHT_TOKEN:
+        while i < output_size and token != END_OF_THOUGHT_TOKEN:
             with torch.no_grad():
                 logits = model(indices)
 
@@ -87,7 +94,7 @@ def make_evaluator(
                 logits_probs = apply_temperature(logits_probs, temperature=1.0)
                 logits_probs = apply_repetition_penalty(logits_probs, [token_to_index.get(char, token_to_index[UNKNOWN_TOKEN]) for char in output], penalty=1.0)
 
-                token_index = top_p_sampling(logits_probs)
+                token_index = top_k_sampling(logits_probs, k=10)
                 token = index_to_token[token_index]
 
             if token != UNKNOWN_TOKEN:
