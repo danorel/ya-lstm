@@ -30,17 +30,18 @@ python \
 ```bash
 python \
     -m src.train \
+    --model_name lstm \
     --model_type character \
     --use_tensorboard \
-    --name lstm \
     --epochs 10 \
     --max_steps 1000 \
     --dropout 0.1 \
-    --cells_size 2 \
-    --hidden_size 256 \
+    --cells_size 3 \
+    --embedding_size 256 \
+    --hidden_size 512 \
     --sequence_size 64 \
-    --batch_size 1024 \
-    --learning_rate 0.01 \
+    --batch_size 64 \
+    --learning_rate 0.001 \
     --accumulation_steps 3
 ```
 
@@ -49,8 +50,8 @@ python \
 ```bash
 python \
     -m src.eval \
+    --model_name lstm \
     --model_type word \
-    --name lstm \
     --prompt_text 'Hello my dear darling and princess, ' \
     --sequence_size 64 \
     --output_size 128
@@ -61,6 +62,8 @@ python \
 ```bash
 python \
     -m src.tune \
+    --model_name lstm \
+    --model_type word \
     --trials 16
 ```
 
@@ -69,9 +72,10 @@ python \
 ```bash
 python \
     -m torch.utils.bottleneck src/train.py \
+    --model_name lstm \
+    --model_type word \
     --use_profiler \
     --num_workers 0 \
-    --name lstm \
     --url https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt \
     --accumulation_steps 5
 ```
@@ -81,8 +85,9 @@ python \
 ```bash
 python \
     -m src.train \
-    --use_tensorboard \
-    --name lstm
+    --model_name lstm \
+    --model_type word \
+    --use_tensorboard
 ```
 
 ## Experiments
@@ -92,7 +97,8 @@ python \
 ```bash
 python \
     -m src.train \
-    --name gru \
+    --model_name gru \
+    --model_type word \
     --url https://github.com/karpathy/char-lstm/blob/master/data/tinyshakespeare/input.txt \
     --epochs 5 \
     --dropout 0.25 \
@@ -105,7 +111,8 @@ python \
 ```bash
 python \
     -m src.eval \
-    --name gru \
+    --model_name gru \
+    --model_type word \
     --url https://github.com/karpathy/char-lstm/blob/master/data/tinyshakespeare/input.txt \
     --sequence_size 64 \
     --prompt_text 'hello, my darling, my name is lord orvald and i am fond of staring at your' \
@@ -119,7 +126,8 @@ python \
 ```bash
 python \
     -m src.export \
-    --name lstm \
+    --model_name lstm \
+    --model_type word \
     --sequence_size 64
 ```
 

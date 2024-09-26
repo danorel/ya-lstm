@@ -11,7 +11,7 @@ import pathlib
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 
-from src.core.constants import MODEL_ARCHIVE_DIR, PAD_SYMBOL
+from src.core.constants import MODEL_ARCHIVE_DIR, PAD_TOKEN
 from src.core.model import model_selector
 
 # character-level specific imports
@@ -32,27 +32,16 @@ def get_config(model_type, corpus: str):
         create_dataloader = create_word_dataloader
     else:
         raise ValueError(f"Unknown model type: {model_type}")
-    
-    (
-        create_embedding_from_indices,
-        create_embedding_from_prompt,
-        token_to_index,
-        index_to_symbol,
-        vocab,
-        vocab_size
-    ) = operations
 
     return {
-        'vocab_size': vocab_size,
-        'token_to_index': token_to_index,
+        'vocab_size': operations['vocab_size'],
+        'token_to_index': operations['token_to_index'],
         'create_dataloader': create_dataloader,
-        'create_embedding': create_embedding_from_indices,
-        'pad_index': token_to_index[PAD_SYMBOL]
+        'pad_index': operations['token_to_index'][PAD_TOKEN]
     }
 
 def make_trainer(
     create_dataloader,
-    create_embedding,
     token_to_index: dict,
     vocab_size: int,
     pad_index: int,
@@ -63,6 +52,7 @@ def make_trainer(
         device: torch.device,
         corpus: str,
         model_name: str,
+        model_type: str,
         hyperparameters: dict,
     ) -> float:
         use_optuna = trial is not None
@@ -72,22 +62,30 @@ def make_trainer(
             tensorboard = SummaryWriter()
 
         dataloader = create_dataloader(
+            device,
             corpus,
             token_to_index,
             hyperparameters['sequence_size'],
             hyperparameters['batch_size'],
             hyperparameters['num_workers']
         )
-
-        model: nn.Module = model_selector[model_name](**{
+  
+        model_config = {
             "input_size": vocab_size,
+            "embedding_size": hyperparameters['embedding_size'],
             "output_size": vocab_size,
             "hidden_size": hyperparameters['hidden_size'],
             "cells_size": hyperparameters['cells_size'],
             "dropout": hyperparameters['dropout'],
             "device": device
-        })
-        
+        }
+
+        print("Model config:")
+        for hyperparameter_name, hyperparamter_value in model_config.items():
+            print(f"\t{hyperparameter_name} = {hyperparamter_value}")
+
+        model: nn.Module = model_selector[model_name](**model_config)
+
         criterion = nn.CrossEntropyLoss(ignore_index=pad_index)
         optimizer = optim.Adam(
             model.parameters(),
@@ -96,7 +94,7 @@ def make_trainer(
         )
         scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=hyperparameters['gamma'])
 
-        model_archive_dir = pathlib.Path(MODEL_ARCHIVE_DIR) / model.name
+        model_archive_dir = pathlib.Path(MODEL_ARCHIVE_DIR) / model_name / model_type
         model_archive_dir.mkdir(parents=True, exist_ok=True)
         
         accuracy_metric = torchmetrics.Accuracy(task='multiclass', num_classes=vocab_size).to(device)
@@ -114,11 +112,8 @@ def make_trainer(
             epoch_loss = 0
             epoch_steps = 0
 
-            for step, (sequences, targets) in enumerate(dataloader, 1):
-                embedding = create_embedding(sequences).to(device)
-                target = targets.to(device)
-
-                logits = model(embedding)
+            for step, (sequences, target) in enumerate(dataloader, 1):
+                logits = model(sequences)
 
                 logits = logits.view(-1, vocab_size)  # Flatten logits to shape [batch_size * sequence_size, vocab_size]
                 target = target.view(-1)  # Flatten target to shape [batch_size * sequence_size]
@@ -185,13 +180,17 @@ def make_trainer(
             
             print(f"Epoch {epoch} finished!\n\tTotal Loss: {epoch_loss:.4f}\n\tAccuracy: {epoch_accuracy:.4f}")
 
-            torch.save(model, model_archive_dir / f'{epoch}' / f'model.pt')
+            epoch_dir = model_archive_dir / f'{epoch}'
+            epoch_dir.mkdir(parents=True, exist_ok=True)
+            torch.save(model, epoch_dir / f'model.pt')
         
         end_time = time.time()
         total_time = end_time - start_time
         print(f"Training on {device} took {total_time:.2f} seconds")
 
-        torch.save(model, model_archive_dir / 'final' / 'model.pt')
+        final_dir = model_archive_dir / 'final'
+        final_dir.mkdir(parents=True, exist_ok=True)
+        torch.save(model, final_dir / 'model.pt')
 
         if use_tensorboard:
             tensorboard.flush()

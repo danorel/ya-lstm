@@ -13,24 +13,17 @@ def make_corpus_operations(corpus: str):
     char_to_index = {c: i for i, c in enumerate(vocab)}
     index_to_char = {i: c for i, c in enumerate(vocab)}
 
-    def create_embedding_from_indices(indices: torch.Tensor) -> torch.Tensor:
-        embedding = F.one_hot(indices, num_classes=vocab_size).float()
-        embedding[indices == char_to_index[PAD_TOKEN]] = 0.0
-        return embedding
+    def create_input_from_prompt(prompt: str) -> torch.Tensor:
+        indices = torch.tensor([char_to_index.get(char, char_to_index[UNKNOWN_TOKEN]) for char in prompt]).long()
+        return indices
 
-    def create_embedding_from_prompt(prompt: str) -> torch.Tensor:
-        indices = torch.tensor([char_to_index.get(char, char_to_index[UNKNOWN_TOKEN]) for char in prompt], dtype=torch.long)
-        embedding = create_embedding_from_indices(indices)
-        return embedding
-
-    return (
-        create_embedding_from_indices,
-        create_embedding_from_prompt,
-        char_to_index,
-        index_to_char,
-        vocab,
-        vocab_size
-    )
+    return {
+        'create_input_from_prompt': create_input_from_prompt,
+        'token_to_index': char_to_index,
+        'index_to_token': index_to_char,
+        'vocab': vocab,
+        'vocab_size': vocab_size
+    }
 
 def create_prompt(prompt: str, sequence_size: int) -> list[str]:
     if len(prompt) < sequence_size:

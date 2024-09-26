@@ -6,7 +6,9 @@ from torch.utils.data import DataLoader, Dataset
 from src.core.constants import UNKNOWN_TOKEN
 
 class WordDataset(Dataset):
-    def __init__(self, corpus: str, index_from_word: dict, sequence_size: int):
+    def __init__(self, device, corpus: str, index_from_word: dict, sequence_size: int):
+        self.device = device
+        
         words = corpus.split()
 
         sequences_windows = np.lib.stride_tricks.sliding_window_view(
@@ -26,9 +28,12 @@ class WordDataset(Dataset):
         return len(self.sequences)
 
     def __getitem__(self, idx):
-        return torch.from_numpy(self.sequences[idx]), torch.from_numpy(self.targets[idx])
+        return (
+            torch.from_numpy(self.sequences[idx]).long().to(self.device),
+            torch.from_numpy(self.targets[idx]).long().to(self.device)
+        )
 
-def create_dataloader(corpus: str, index_from_word: dict, sequence_size: int, batch_size: int, num_workers: int = 0):
-    dataset = WordDataset(corpus, index_from_word, sequence_size)
+def create_dataloader(device, corpus: str, index_from_word: dict, sequence_size: int, batch_size: int, num_workers: int = 0):
+    dataset = WordDataset(device, corpus, index_from_word, sequence_size)
     dataloader = DataLoader(dataset, batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
     return dataloader

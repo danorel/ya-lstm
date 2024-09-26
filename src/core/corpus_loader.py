@@ -1,7 +1,19 @@
+import nltk
 import pathlib
+import re
 import requests
 
+from nltk.corpus import words
+
 from src.core.constants import CORPUS_DIR
+
+# Download a list of valid English words from nltk
+nltk.data.path.append('./dictionary')
+nltk.download('words', download_dir='./dictionary/')
+
+# Load a list of valid English words from dictionary
+valid_words = set([word.lower() for word in words.words()])
+
 
 def fetch_text(url) -> str:
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
@@ -14,8 +26,25 @@ def fetch_text(url) -> str:
         raise ValueError(f"Expected text/plain content, but got {content_type}")
 
 def preprocess(corpus: str):
-    corpus = corpus.lower()
-    return corpus
+    corpus = re.sub(r'[^a-zA-Z\s]', '', corpus)
+
+    # Tokenize the corpus into words
+    tokenized = corpus.split()
+    
+    # Conditionally lowercase words if they are valid English words
+    processed_tokens = [
+        word.lower() if word.lower() in valid_words else word
+        for word in tokenized
+    ]
+
+    # Remove words which are only upper case
+    processed_tokens = [
+        word
+        for word in processed_tokens
+        if word.islower()
+    ]
+
+    return ' '.join(processed_tokens)
 
 def fetch_and_load_corpus(url: str) -> str:
     filename = url.split('/')[-1]

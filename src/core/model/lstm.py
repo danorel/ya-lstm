@@ -45,6 +45,7 @@ class LSTM(nn.Module):
     def __init__(
         self,
         input_size: int,
+        embedding_size: int,
         hidden_size: int,
         output_size: int,
         cells_size: int = 1,
@@ -54,9 +55,10 @@ class LSTM(nn.Module):
         super(LSTM, self).__init__()
         self.device = device
         self.hidden_size = hidden_size
+        self.embedding = nn.Embedding(input_size, embedding_size).to(self.device)
         self.cells = nn.ModuleList([
             LSTMCell(
-                input_size=input_size if k == 0 else hidden_size,
+                input_size=embedding_size if k == 0 else hidden_size,
                 hidden_size=hidden_size,
                 device=device
             ) 
@@ -78,8 +80,9 @@ class LSTM(nn.Module):
 
         c_t = Variable(torch.zeros(batch_size, self.hidden_size)).to(self.device)
         h_t = Variable(torch.zeros(batch_size, self.hidden_size)).to(self.device)
-
         outs = Variable(torch.zeros(batch_size, sequence_size, self.hidden_size)).to(self.device)
+
+        x = self.embedding(x)
         for t in range(sequence_size):
             i_t = x[:, t, :]
             for lstm in self.cells:

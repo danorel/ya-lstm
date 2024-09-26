@@ -31,6 +31,8 @@ if __name__ == '__main__':
                         help='Dropout rate for training')
     parser.add_argument('--cells_size', type=int, default=2,
                         help='The number of LSTM layers')
+    parser.add_argument('--embedding_size', type=int, default=128,
+                        help='The size of embedding layers')
     parser.add_argument('--hidden_size', type=int, default=256,
                         help='The size of hidden/context layers')
     parser.add_argument('--sequence_size', type=int, default=16,
@@ -60,13 +62,15 @@ if __name__ == '__main__':
     train(
         device,
         corpus,
-        model_name=args.model_name,
+        args.model_name,
+        args.model_type,
         hyperparameters={
             "num_workers": args.num_workers,
             "max_steps": 100 if args.use_profiler else args.max_steps,
             "epochs": 1 if args.use_profiler else args.epochs,
             "dropout": args.dropout, 
             "cells_size": args.cells_size,
+            "embedding_size": args.embedding_size,
             "hidden_size": args.hidden_size,
             "sequence_size": args.sequence_size,
             "batch_size": args.batch_size,

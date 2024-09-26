@@ -2,8 +2,9 @@ import argparse
 import torch
 import torch.nn as nn
 
-from src.core.model import load_model_from_archive
+from src.core.constants import UNKNOWN_TOKEN, END_OF_THOUGHT_TOKEN
 from src.core.corpus_loader import fetch_and_load_corpus
+from src.core.model import load_model_from_archive
 
 # character-level specific imports
 from src.character_level.utils import (
@@ -30,55 +31,48 @@ def get_config(model_type: str, corpus: str):
     else:
         raise ValueError(f"Unknown model type: {model_type}")
     
-    (
-        create_embedding_from_indices,
-        create_embedding_from_prompt,
-        token_to_index,
-        index_to_token,
-        vocab,
-        vocab_size
-    ) = operations
-
     return {
         'create_prompt': create_prompt,
-        'create_embedding_from_prompt': create_embedding_from_prompt,
-        'create_embedding_from_indices': create_embedding_from_indices,
-        'index_to_token': index_to_token,
+        'create_input_from_prompt': operations['create_input_from_prompt'],
+        'index_to_token': operations['index_to_token'],
     }
 
 def make_evaluator(
     model: nn.Module,
     create_prompt,
-    create_embedding_from_prompt,
-    create_embedding_from_indices,
+    create_input_from_prompt,
     index_to_token: dict,
 ):
     def eval(prompt: str, sequence_size, output_size: int = 255) -> str:
+        output_prompt = prompt.split()
         padded_prompt = create_prompt(prompt, sequence_size)
 
-        sequence_embedding = create_embedding_from_prompt(padded_prompt)
-        sequence_embedding = sequence_embedding.unsqueeze(0).to(device)
+        sequence = create_input_from_prompt(padded_prompt)
+        sequence = sequence.unsqueeze(0).to(device)
 
         model.eval()
 
         token = None
         i = 0
-        while i < (output_size - len(prompt)) and token != '\n':
+        while i < (output_size - len(prompt)) and token != END_OF_THOUGHT_TOKEN:
             with torch.no_grad():
-                logits = model(sequence_embedding)
+                logits = model(sequence)
                 logits_probs = torch.softmax(logits[:, -1, :], dim=-1).squeeze()
 
             token_idx = torch.multinomial(logits_probs, 1).item()
             token = index_to_token[token_idx]
-            padded_prompt.append(token)
 
-            char_embedding = create_embedding_from_indices(torch.tensor([token_idx]))
-            char_embedding = char_embedding.unsqueeze(0).to(device)
-            sequence_embedding = torch.cat((sequence_embedding[:, -sequence_size+1:, :], char_embedding), dim=1)
+            if token != UNKNOWN_TOKEN:
+                output_prompt.append(token)
+
+            symbol = create_input_from_prompt(token)
+            symbol = symbol.unsqueeze(0).to(device)
+
+            sequence = torch.cat((sequence[:, -sequence_size+1:], symbol), dim=1)
 
             i += 1
 
-        return padded_prompt
+        return ' '.join(output_prompt)
     
     return eval
 
@@ -102,7 +96,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     eval = make_evaluator(
-        model=load_model_from_archive(device, args.model_name, args.model_type)
+        model=load_model_from_archive(device, args.model_name, args.model_type),
         **get_config(args.model_type, corpus=fetch_and_load_corpus(args.url))
     )
 

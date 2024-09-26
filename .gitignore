@@ -177,4 +177,5 @@ poetry.toml
 model_archive/
 model_repository/
 corpus/
+dictionary/
 runs/

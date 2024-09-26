@@ -6,7 +6,7 @@ import torch
 from pathlib import Path
 
 from src.train import get_config, make_trainer
-from core.corpus_loader import fetch_and_load_corpus
+from src.core.corpus_loader import fetch_and_load_corpus
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -23,6 +23,7 @@ def objective(model_name: str, model_type: str, use_tensorboard: bool, num_worke
         hyperparameters = {
             'dropout': trial.suggest_float('dropout', 0.1, 0.5),
             'cells_size': trial.suggest_int('cells_size', 1, 3),
+            'embedding_size': trial.suggest_int('embedding_size', 128, 512),
             'hidden_size': trial.suggest_int('hidden_size', 128, 512),
             'sequence_size': trial.suggest_int('sequence_size', 16, 64),
             'batch_size': trial.suggest_int('batch_size', 128, 1024),
@@ -35,7 +36,8 @@ def objective(model_name: str, model_type: str, use_tensorboard: bool, num_worke
         accuracy = train(
             device,
             corpus,
-            model_name=model_name,
+            model_name,
+            model_type,
             hyperparameters={
                 'num_workers': num_workers,
                 'epochs': 1,

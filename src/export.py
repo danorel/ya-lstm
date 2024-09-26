@@ -1,5 +1,6 @@
 import argparse
 import torch
+import torch.nn as nn
 
 from src.core.corpus_loader import fetch_and_load_corpus
 from src.core.model import load_model_from_archive, load_model_to_repository
@@ -21,31 +22,17 @@ def get_config(model_type: str, corpus: str):
     else:
         raise ValueError(f"Unknown model type: {model_type}")
     
-    (
-        create_embedding_from_indices,
-        create_embedding_from_prompt,
-        token_to_index,
-        index_to_token,
-        vocab,
-        vocab_size
-    ) = operations
-
     return {
-        'vocab_size': vocab_size,
+        'vocab_size': operations['vocab_size'],
     }
 
-def make_exporter(
-    vocab_size: int
-):
-    def export(model, sequence_size: int):
-        example_embedding = torch.randn(1, sequence_size, vocab_size).to(device)
-
+def make_exporter(model: nn.Module, vocab_size: int):
+    def export(model_name: str, model_type: str, sequence_size: int):
         load_model_to_repository(
             model,
-            example_embedding,
-            model_name,
-            model_type,
-            version=1,
+            example=torch.randn(1, sequence_size, vocab_size).to(device),
+            path=f"{model_name}-{model_type}",
+            version="1",
         )
     
     return export
@@ -66,9 +53,12 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     export = make_exporter(
+        model=load_model_from_archive(device, args.model_name, args.model_type),
         **get_config(args.model_type, corpus=fetch_and_load_corpus(args.url))
     )
 
-    model = load_model_from_archive(device, args.model_name, args.model_type)
-
-    export(model, args.sequence_size)
+    export(
+        args.model_name,
+        args.model_type,
+        args.sequence_size
+    )
