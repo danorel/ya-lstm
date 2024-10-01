@@ -1,33 +1,34 @@
 import argparse
 import torch
-import torch.nn as nn
 
 from src.core.corpus_loader import fetch_and_load_corpus
 from src.core.model import load_model_from_archive, load_model_to_repository
 
-# character-level specific imports
-from src.character_level.utils import make_corpus_operations as make_character_operations
-
-# word-level specific imports
-from src.word_level.utils import make_corpus_operations as make_word_operations
+from src.character_level.utils import make_corpus_operations as make_character_utils
+from src.word_level.utils import make_corpus_operations as make_word_utils
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def get_config(model_type: str, corpus: str):
+def get_exporting_utils(model_type: str, corpus: str):
     if model_type == 'character':
-        operations = make_character_operations(corpus)
+        utils = make_character_utils(corpus)
     elif model_type == 'word':
-        operations = make_word_operations(corpus)
+        utils = make_word_utils(corpus)
     else:
         raise ValueError(f"Unknown model type: {model_type}")
     
-    return {
-        'vocab_size': operations['vocab_size'],
-    }
+    return utils
 
-def make_exporter(model: nn.Module, vocab_size: int):
-    def export(model_name: str, model_type: str, sequence_size: int):
+def make_exporter(
+    model_name: str,
+    model_type: str,
+    vocab_size: int,
+    **kwargs
+):
+    model = load_model_from_archive(model_name, model_type),
+
+    def export(sequence_size: int):
         load_model_to_repository(
             model,
             example=torch.randn(1, sequence_size, vocab_size).to(device),
@@ -53,12 +54,11 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     export = make_exporter(
-        model=load_model_from_archive(device, args.model_name, args.model_type),
-        **get_config(args.model_type, corpus=fetch_and_load_corpus(args.url))
-    )
-
-    export(
         args.model_name,
         args.model_type,
-        args.sequence_size
+        **get_exporting_utils(
+            args.model_type,
+            corpus=fetch_and_load_corpus(args.url)
+        )
     )
+    export(args.sequence_size)

@@ -5,14 +5,14 @@ from torch.utils.data import DataLoader, Dataset
 
 from src.core.constants import UNKNOWN_TOKEN
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 class WordDataset(Dataset):
-    def __init__(self, device, corpus: str, index_from_word: dict, sequence_size: int):
-        self.device = device
-        
+    def __init__(self, corpus: str, word_to_index: dict, sequence_size: int):
         words = corpus.split()
 
         sequences_windows = np.lib.stride_tricks.sliding_window_view(
-            x=np.array([index_from_word.get(word, index_from_word[UNKNOWN_TOKEN]) for word in words]),
+            x=np.array([word_to_index.get(word, word_to_index[UNKNOWN_TOKEN]) for word in words]),
             window_shape=sequence_size
         )
 
@@ -29,11 +29,14 @@ class WordDataset(Dataset):
 
     def __getitem__(self, idx):
         return (
-            torch.from_numpy(self.indices[idx]).long().to(self.device),
-            torch.from_numpy(self.targets[idx]).long().to(self.device)
+            torch.from_numpy(self.indices[idx]).long().to(device),
+            torch.from_numpy(self.targets[idx]).long().to(device)
         )
 
-def create_dataloader(device, corpus: str, index_from_word: dict, sequence_size: int, batch_size: int, num_workers: int = 0):
-    dataset = WordDataset(device, corpus, index_from_word, sequence_size)
-    dataloader = DataLoader(dataset, batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
-    return dataloader
+def make_dataloader(corpus: str, word_to_index: dict):
+    def use_dataloader(sequence_size: int, batch_size: int):
+        dataset = WordDataset(corpus, word_to_index, sequence_size)
+        dataloader = DataLoader(dataset, batch_size, shuffle=True, num_workers=0, pin_memory=True)
+        return dataloader
+    
+    return use_dataloader

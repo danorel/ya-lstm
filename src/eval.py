@@ -9,33 +9,31 @@ from src.core.model import load_model_from_archive
 # character-level specific imports
 from src.character_level.utils import (
     input_to_padded as character_to_padded,
-    make_corpus_operations as make_character_operations
+    make_corpus_operations as make_character_utils
 )
 
 # word-level specific imports
 from src.word_level.utils import (
     input_to_padded as word_to_padded,
-    make_corpus_operations as make_word_operations
+    make_corpus_operations as make_word_utils
 )
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def get_config(model_type: str, corpus: str):
+def get_evaluation_utils(model_type: str, corpus: str):
     if model_type == 'character':
-        operations = make_character_operations(corpus)
+        utils = make_character_utils(corpus)
         input_to_padded = character_to_padded
     elif model_type == 'word':
-        operations = make_word_operations(corpus)
+        utils = make_word_utils(corpus)
         input_to_padded = word_to_padded
     else:
         raise ValueError(f"Unknown model type: {model_type}")
     
     return {
+        **utils,
         'input_to_padded': input_to_padded,
-        'input_to_index': operations['input_to_index'],
-        'index_to_token': operations['index_to_token'],
-        'token_to_index': operations['token_to_index']
     }
 
 def apply_temperature(logits_probs, temperature: float = 0.0):
@@ -70,12 +68,16 @@ def top_p_sampling(logits_probs, p: float = 0.9):
     return top_p_indices[token_index].item()
 
 def make_evaluator(
-    model: nn.Module,
+    model_name: str,
+    model_type: str,
     input_to_padded,
     input_to_index,
     index_to_token: dict,
-    token_to_index: dict
+    token_to_index: dict,
+    **kwargs
 ):
+    model = load_model_from_archive(model_name, model_type)
+
     def eval(input: str, sequence_size, output_size: int = 255) -> str:
         output = input.lower().split()
         padded_input = input_to_padded(input, sequence_size)
@@ -91,8 +93,9 @@ def make_evaluator(
                 logits = model(indices)
 
                 logits_probs = torch.softmax(logits[:, -1, :], dim=-1).squeeze()
-                # logits_probs = apply_temperature(logits_probs, temperature=0.0)
-                # logits_probs = apply_repetition_penalty(logits_probs, [token_to_index.get(char, token_to_index[UNKNOWN_TOKEN]) for char in output], penalty=1.0)
+                if False:
+                    logits_probs = apply_temperature(logits_probs, temperature=0.0)
+                    logits_probs = apply_repetition_penalty(logits_probs, [token_to_index.get(char, token_to_index[UNKNOWN_TOKEN]) for char in output], penalty=1.0)
 
                 token_index = top_k_sampling(logits_probs, k=10)
                 token = index_to_token[token_index]
@@ -130,8 +133,12 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     eval = make_evaluator(
-        model=load_model_from_archive(device, args.model_name, args.model_type),
-        **get_config(args.model_type, corpus=fetch_and_load_corpus(args.url))
+        args.model_name,
+        args.model_type,
+        **get_evaluation_utils(
+            args.model_type,
+            corpus=fetch_and_load_corpus(args.url)
+        )
     )
 
     print(eval(args.prompt_text, args.sequence_size, args.output_size))

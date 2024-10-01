@@ -1,6 +1,7 @@
 import torch
 
 from src.core.constants import END_OF_THOUGHT_TOKEN, PAD_TOKEN, UNKNOWN_TOKEN
+from src.character_level.data_loader import make_dataloader
 
 
 def make_corpus_operations(corpus: str):
@@ -17,6 +18,7 @@ def make_corpus_operations(corpus: str):
         return torch.tensor(indices).long().unsqueeze(0)
 
     return {
+        'use_dataloader': make_dataloader(corpus, char_to_index),
         'input_to_index': input_to_index,
         'index_to_token': index_to_char,
         'token_to_index': char_to_index,

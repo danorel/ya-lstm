@@ -30,19 +30,20 @@ python \
 ```bash
 python \
     -m src.train \
-    --model_name gru \
+    --model_name lstm \
     --model_type word \
     --use_tensorboard \
-    --epochs 5 \
-    --max_steps 1000 \
     --dropout 0.1 \
-    --cells_size 3 \
-    --embedding_size 256 \
-    --hidden_size 512 \
+    --cells_size 5 \
+    --embedding_size 128 \
+    --hidden_size 256 \
     --sequence_size 64 \
     --batch_size 64 \
-    --learning_rate 0.001 \
-    --accumulation_steps 3
+    --learning_rate 0.0001 \
+    --max_epochs 5 \
+    --max_steps 1000 \
+    --accumulation_steps 3 \
+    --patience_steps 100
 ```
 
 4. Evaluate LSTM agent via generation sampling on **custom** dataset with **pre-trained** model hyperparameters:
@@ -54,7 +55,7 @@ python \
     --model_type word \
     --prompt_text 'Hello my dear darling and princess, ' \
     --sequence_size 64 \
-    --output_size 128
+    --output_size 32
 ```
 
 5. Tune LSTM agent via Optuna:
