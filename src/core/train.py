@@ -1,3 +1,4 @@
+import numpy as np
 import time
 import torch
 import torchmetrics
@@ -31,7 +32,7 @@ class ModelArchitecture:
 class ModelTrainingConfig:
     max_epochs: int
     max_steps: int
-    accumulation_steps: t.Optional[int] = 3
+    accumulation_steps: t.Optional[int] = 1
     patience_steps: t.Optional[int] = 100
     log_steps: t.Optional[int] = 10
 
@@ -81,6 +82,14 @@ def find_accuracy(metric: torchmetrics.Accuracy, use_percents: bool = True):
         return accuracy_in_units
     accuracy_in_percents = accuracy_in_units * 100
     return accuracy_in_percents
+
+def find_stability(model: nn.Module):
+    grad_norms = [
+        param.grad.norm(2).item()
+        for _, param in model.named_parameters()
+        if param.grad is not None
+    ]
+    return np.std(grad_norms) / (np.mean(grad_norms) + 1e-8)
 
 def find_class_weights(dataloader, vocab_size: int):
     class_counts = torch.zeros(vocab_size, dtype=torch.long, device=device)
@@ -153,11 +162,14 @@ def make_trainer(
         
         for step, (indices, target) in enumerate(dataloader, 1):
             logits = model(indices)
-            logits = logits.view(-1, logits.size(-1))
+
+            logits = logits.view(-1, vocab_size)
             target = target.view(-1)
 
             batch_loss = criterion(logits, target)
-            (batch_loss / training_config.accumulation_steps).backward()
+            batch_loss /= training_config.accumulation_steps
+
+            batch_loss.backward()
 
             batch_loss = batch_loss.item()
             epoch_total_loss += batch_loss
@@ -191,6 +203,7 @@ def make_trainer(
                 tensorboard.add_scalar('Step/Total-Loss', epoch_total_loss, progress_step)
                 tensorboard.add_scalar('Step/Batch-Loss', batch_loss, progress_step)
                 tensorboard.add_scalar('Step/Accuracy', find_accuracy(metric), progress_step)
+                tensorboard.add_scalar('Step/Stability', find_stability(model), progress_step)
                 for name, param in model.named_parameters():
                     if param.grad is not None:
                         tensorboard.add_histogram(f"Step/Grad/{name}", param.grad, progress_step)

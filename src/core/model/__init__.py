@@ -17,7 +17,7 @@ model_selector: t.Dict[str, nn.Module] = {
 def load_model_from_archive(model_name: str, model_type: str) -> nn.Module:
     model_archive_dir = pathlib.Path(MODEL_ARCHIVE_DIR)
     model_archive_dir.mkdir(parents=True, exist_ok=True)
-    model_file = model_archive_dir / model_name / model_type / '1' / '150' / 'model.pt'
+    model_file = model_archive_dir / model_name / model_type / '1' / '20' / 'model.pt'
     if not model_file.exists():
         raise RuntimeError("Not found pre-trained LSTM-based model")
     model: nn.Module = torch.load(model_file)
