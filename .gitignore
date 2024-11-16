@@ -173,9 +173,5 @@ poetry.toml
 # End of https://www.toptal.com/developers/gitignore/api/python
 .DS_Store
 
-# Custom
-model_archive/
-model_repository/
-corpus/
-dictionary/
-runs/
+# Metadata and corpus
+metadata/

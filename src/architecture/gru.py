@@ -1,19 +1,21 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import math
 
+import torch
+from torch import nn
 from torch.autograd import Variable
+from torch.nn import functional as F
+
+from src.constants.device import device
+from src.constants.modelling import ArchitectureName
+
 
 class GRUCell(nn.Module):
     def __init__(
         self,
         input_size: int,
         hidden_size: int,
-        device: torch.device = torch.device('cpu'),
     ):
-        super(GRUCell, self).__init__()
-        self.device = device
+        super().__init__()
         self.hidden_size = hidden_size
         self.x2h = nn.Linear(input_size, 3 * hidden_size, bias=True).to(device)
         self.h2h = nn.Linear(hidden_size, 3 * hidden_size, bias=True).to(device)
@@ -39,8 +41,9 @@ class GRUCell(nn.Module):
 
         return h_next
 
+
 class GRU(nn.Module):
-    name = 'gru'
+    name = ArchitectureName.GRU.value
 
     def __init__(
         self,
@@ -50,20 +53,19 @@ class GRU(nn.Module):
         output_size: int,
         cells_size: int,
         dropout: float = 0.5,
-        device: torch.device = torch.device('cpu')
     ):
-        super(GRU, self).__init__()
-        self.device = device
+        super().__init__()
         self.hidden_size = hidden_size
         self.embedding = nn.Embedding(input_size, embedding_size).to(device)
-        self.cells = nn.ModuleList([
-            GRUCell(
-                input_size=embedding_size if k == 0 else hidden_size,
-                hidden_size=hidden_size,
-                device=device
-            )
-            for k in range(cells_size)
-        ])
+        self.cells = nn.ModuleList(
+            [
+                GRUCell(
+                    input_size=embedding_size if k == 0 else hidden_size,
+                    hidden_size=hidden_size,
+                )
+                for k in range(cells_size)
+            ]
+        )
         self.dropout = nn.Dropout(dropout).to(device)
         self.decoder = nn.Linear(hidden_size, output_size).to(device)
         self.init_weights()
@@ -80,8 +82,8 @@ class GRU(nn.Module):
         batch_size = x.size(0)
         sequence_size = x.size(1)
 
-        h_t = Variable(torch.zeros(batch_size, self.hidden_size)).to(self.device)
-        outs = Variable(torch.zeros(batch_size, sequence_size, self.hidden_size)).to(self.device)
+        h_t = Variable(torch.zeros(batch_size, self.hidden_size)).to(device)
+        outs = Variable(torch.zeros(batch_size, sequence_size, self.hidden_size)).to(device)
 
         x = self.embedding(x)
         for t in range(sequence_size):

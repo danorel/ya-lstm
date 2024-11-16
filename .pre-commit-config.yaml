@@ -1,5 +1,21 @@
 repos:
-  - repo: https://github.com/pre-commit/mirrors-autopep8
-    rev: v1.5.4  # Use the sha / tag you want to point at
+  - repo: https://github.com/psf/black
+    rev: 24.10.0
     hooks:
-    - id: autopep8
+      - id: black
+
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+
+  - repo: https://github.com/PyCQA/pylint
+    rev: v3.3.1
+    hooks:
+      - id: pylint
+        files: ^src/
+
+  - repo: https://github.com/trailofbits/pip-audit
+    rev: v2.7.3
+    hooks:
+      - id: pip-audit

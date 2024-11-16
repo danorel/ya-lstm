@@ -1,0 +1,23 @@
+[run]
+branch = True
+source = src
+omit =
+    */tests/*
+    */venv/*
+    */__init__.py
+
+[report]
+show_missing = True
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
+    except:
+    pass
+
+[html]
+directory = coverage_report
+
+[xml]
+output = coverage.xml
+
+[coverage:report]
