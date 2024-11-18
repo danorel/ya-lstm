@@ -98,6 +98,7 @@ def find_class_weights(dataloader, vocab_size: int):
         unique, counts = torch.unique(target, return_counts=True)
         class_counts[unique] += counts
     class_weights = 1.0 / (class_counts.float() + 1e-6)
+    class_weights = torch.pow(class_weights, 0.5)
     class_weights = class_weights / class_weights.sum()
     return class_weights
 

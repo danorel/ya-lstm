@@ -42,16 +42,16 @@ if __name__ == "__main__":
     )
     parser.add_argument("--use_profiler", action="store_true", help="Enable profiling with torch.utils.bottleneck")
     parser.add_argument("--use_tensorboard", action="store_true", help="Enable tensorboard metrics collection")
-    parser.add_argument("--dropout", type=float, default=0.2, help="Dropout rate for training.")
-    parser.add_argument("--cells_size", type=int, default=2, help="The number of LSTM layers.")
-    parser.add_argument("--embedding_size", type=int, default=128, help="The size of embedding layers.")
-    parser.add_argument("--hidden_size", type=int, default=256, help="The size of hidden/context layers.")
-    parser.add_argument("--sequence_size", type=int, default=16, help="The size of each input sequence.")
-    parser.add_argument("--batch_size", type=int, default=1024, help="Number of samples in each batch.")
+    parser.add_argument("--dropout", type=float, default=0.3, help="Dropout rate for training.")
+    parser.add_argument("--cells_size", type=int, default=3, help="The number of LSTM layers.")
+    parser.add_argument("--embedding_size", type=int, default=512, help="The size of embedding layers.")
+    parser.add_argument("--hidden_size", type=int, default=1024, help="The size of hidden/context layers.")
+    parser.add_argument("--sequence_size", type=int, default=64, help="The size of each input sequence.")
+    parser.add_argument("--batch_size", type=int, default=64, help="Number of samples in each batch.")
     parser.add_argument(
         "--learning_rate",
         type=float,
-        default=0.001,
+        default=0.0001,
         help="Learning rate parameter of LSTM optimizer.",
     )
     parser.add_argument(
@@ -69,7 +69,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--grad_clip_norm",
         type=float,
-        default=5.0,
+        default=1.0,
         help="Gradient clipping serving for weights update normalization to avoid gradient explosion and overflow.",
     )
     parser.add_argument("--max_epochs", type=int, default=3, help="Number of training epochs.")
