@@ -1,4 +1,5 @@
 import math
+import typing as t
 
 import torch
 from torch import nn
@@ -53,10 +54,15 @@ class LSTM(nn.Module):
         output_size: int,
         cells_size: int = 1,
         dropout: float = 0.25,
+        pretrained_embeddings: t.Optional[torch.Tensor] = None,
     ):
         super().__init__()
         self.hidden_size = hidden_size
         self.embedding = nn.Embedding(input_size, embedding_size).to(device)
+        if pretrained_embeddings is not None:
+            self.embedding.weight = nn.Parameter(pretrained_embeddings)
+            self.embedding.weight.requires_grad = True
+
         self.cells = nn.ModuleList(
             [
                 LSTMCell(
@@ -85,14 +91,14 @@ class LSTM(nn.Module):
         outs = Variable(torch.zeros(batch_size, sequence_size, self.hidden_size)).to(device)
 
         x = self.embedding(x)
-        for t in range(sequence_size):
-            i_t = x[:, t, :]
+        for s_t in range(sequence_size):
+            i_t = x[:, s_t, :]
             for idx, lstm in enumerate(self.cells):
                 c_t, h_t = lstm(i_t, c_t, h_t)
                 i_t = h_t
                 if idx < len(self.cells) - 1:
                     i_t = self.dropout(i_t)
-            outs[:, t, :] = i_t
+            outs[:, s_t, :] = i_t
         out = self.decoder(self.dropout(outs))
 
         return out

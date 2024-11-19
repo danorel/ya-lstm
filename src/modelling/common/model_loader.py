@@ -5,17 +5,17 @@ from torch import nn
 
 from src.architecture import GRU, LSTM
 from src.constants.device import device
-from src.constants.metadata import MODEL_ARCHIVE_DIR, MODEL_REPOSITORY_DIR
+from src.constants.metadata import MODEL_ARTIFACTS_DIR, MODEL_REPOSITORY_DIR
 from src.modelling.common.model_arguments import Metadata
 
-model_archive_dir = pathlib.Path(MODEL_ARCHIVE_DIR)
-model_archive_dir.mkdir(parents=True, exist_ok=True)
+model_artifacts_dir = pathlib.Path(MODEL_ARTIFACTS_DIR)
+model_artifacts_dir.mkdir(parents=True, exist_ok=True)
 
 select_architecture: dict[str, nn.Module] = {architecture.name: architecture for architecture in (LSTM, GRU)}
 
 
-def load_model_from_archive(metadata: Metadata, version: str = "latest") -> nn.Module:
-    model_file = model_archive_dir / metadata.architecture_name / metadata.modelling_name / version / "model.pt"
+def load_model_from_artifacts(metadata: Metadata, version: str = "latest") -> nn.Module:
+    model_file = model_artifacts_dir / metadata.architecture_name / metadata.modelling_name / version / "model.pt"
     if not model_file.exists():
         raise RuntimeError("Not found pre-trained LSTM-based model")
     model: nn.Module = torch.load(model_file)

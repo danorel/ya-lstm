@@ -42,9 +42,10 @@ if __name__ == "__main__":
     )
     parser.add_argument("--use_profiler", action="store_true", help="Enable profiling with torch.utils.bottleneck")
     parser.add_argument("--use_tensorboard", action="store_true", help="Enable tensorboard metrics collection")
+    parser.add_argument("--use_pretrained_embeddings", action="store_true", help="Enable pre-trained embeddings")
     parser.add_argument("--dropout", type=float, default=0.3, help="Dropout rate for training.")
     parser.add_argument("--cells_size", type=int, default=3, help="The number of LSTM layers.")
-    parser.add_argument("--embedding_size", type=int, default=512, help="The size of embedding layers.")
+    parser.add_argument("--embedding_size", type=int, default=50, help="The size of embedding layers.")
     parser.add_argument("--hidden_size", type=int, default=1024, help="The size of hidden/context layers.")
     parser.add_argument("--sequence_size", type=int, default=64, help="The size of each input sequence.")
     parser.add_argument("--batch_size", type=int, default=64, help="Number of samples in each batch.")
@@ -96,7 +97,10 @@ if __name__ == "__main__":
             architecture_name=args.architecture_name,
             modelling_name=args.modelling_name,
         ),
-        Plugins(use_tensorboard=args.use_tensorboard),
+        Plugins(
+            use_tensorboard=args.use_tensorboard,
+            use_pretrained_embeddings=args.use_pretrained_embeddings,
+        ),
         Setup(
             max_epochs=(1 if args.use_profiler else args.max_epochs),
             max_steps=(100 if args.use_profiler else args.max_steps),

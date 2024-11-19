@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from src.constants.corpus import PAD_TOKEN
 from src.constants.device import device
-from src.constants.metadata import MODEL_ARCHIVE_DIR, TENSORBOARD_DIR
+from src.constants.metadata import EMBEDDINGS_PRETRAINED_GLOVE_PATH, MODEL_ARTIFACTS_DIR, TENSORBOARD_DIR
 from src.modelling.common.model_arguments import CorpusUtils, Metadata
 from src.modelling.common.model_loader import select_architecture
 
@@ -46,14 +46,52 @@ class Setup:
     log_steps: t.Optional[int] = 10
 
 
-class Plugins:
-    def __init__(self, use_tensorboard: bool):
-        self.archive = None
-        self.tensorboard = SummaryWriter(log_dir=TENSORBOARD_DIR) if use_tensorboard else None
+def load_glove_embeddings_index() -> dict[str, np.ndarray]:
+    embeddings_index = {}
+    with open(EMBEDDINGS_PRETRAINED_GLOVE_PATH, "r", encoding="utf8") as file:
+        for line in file:
+            values = line.split()
+            word = values[0]
+            vector = np.asarray(values[1:], dtype="float32")
+            embeddings_index[word] = vector
+    return embeddings_index
 
-    def setup_archive_from(self, metadata: Metadata):
-        self.archive = pathlib.Path(MODEL_ARCHIVE_DIR) / metadata.architecture_name / metadata.modelling_name
-        self.archive.mkdir(parents=True, exist_ok=True)
+
+def load_pretrained_embeddings(embedding_dim: int, word_to_index: dict[str, int], vocab_size: int):
+    embeddings_index = load_glove_embeddings_index()
+    embeddings_matrix = np.zeros((vocab_size, embedding_dim))
+
+    for word, index in word_to_index.items():
+        if (embedding_vector := embeddings_index.get(word)) is not None:
+            embeddings_matrix[index] = embedding_vector
+        else:
+            embeddings_matrix[index] = np.random.uniform(-0.1, 0.1, embedding_dim)
+
+    return torch.tensor(embeddings_matrix, dtype=torch.float32)
+
+
+class Plugins:
+    def __init__(self, use_tensorboard: bool, use_pretrained_embeddings: bool):
+        self._use_tensorboard = use_tensorboard
+        self._use_pretrained_embeddings = use_pretrained_embeddings
+
+        self.artifacts = None
+        self.tensorboard = None
+        self.pretrained_embeddings = None
+
+    def setup_monitoring(self):
+        if self._use_tensorboard:
+            self.tensorboard = SummaryWriter(log_dir=TENSORBOARD_DIR)
+
+    def setup_artifacts(self, metadata: Metadata):
+        self.artifacts = pathlib.Path(MODEL_ARTIFACTS_DIR) / metadata.architecture_name / metadata.modelling_name
+        self.artifacts.mkdir(parents=True, exist_ok=True)
+
+    def setup_pretrained_embeddings(self, architecture: Architecture, corpus_utils: CorpusUtils):
+        if self._use_pretrained_embeddings:
+            self.pretrained_embeddings = load_pretrained_embeddings(
+                architecture.embedding_size, corpus_utils.token_to_index, corpus_utils.vocab_size
+            )
 
 
 def print_config(config, description: str):
@@ -88,6 +126,8 @@ def find_accuracy(metric: torchmetrics.Accuracy, use_percents: bool = True):
 
 def find_stability(model: nn.Module):
     grad_norms = [param.grad.norm(2).item() for _, param in model.named_parameters() if param.grad is not None]
+    if len(grad_norms) == 0:
+        return 0
     return np.std(grad_norms) / (np.mean(grad_norms) + 1e-8)
 
 
@@ -111,16 +151,14 @@ def make_optimizer_and_scheduler(model: nn.Module, hyperparameters: Hyperparamet
     return optimizer, scheduler
 
 
-def save_model(model: nn.Module, archive: pathlib.Path, path: str) -> None:
-    model_checkpoint_dir = archive / path
+def save_model_to_artifacts(model: nn.Module, artifacts: pathlib.Path, path: str) -> None:
+    model_checkpoint_dir = artifacts / path
     model_checkpoint_dir.mkdir(parents=True, exist_ok=True)
     torch.save(model, model_checkpoint_dir / "model.pt")
 
 
 def make_trainer(metadata: Metadata, plugins: Plugins, setup: Setup, corpus_utils: CorpusUtils):
     """Return a trainer function based on provided configurations."""
-    plugins.setup_archive_from(metadata)
-
     metric = torchmetrics.Accuracy(task="multiclass", num_classes=corpus_utils.vocab_size).to(device)
 
     def setup_architecture(architecture: Architecture):
@@ -178,7 +216,7 @@ def make_trainer(metadata: Metadata, plugins: Plugins, setup: Setup, corpus_util
                 stale_steps += 1
 
             if stale_steps > setup.patience_steps:
-                save_model(model, plugins.archive, path=f"{epoch}/early_stopping")
+                save_model_to_artifacts(model, plugins.artifacts, path=f"{epoch}/early_stopping")
                 print(f"Stopping at step {step}. No improvement in loss for {setup.patience_steps} steps.")
                 break
 
@@ -188,8 +226,8 @@ def make_trainer(metadata: Metadata, plugins: Plugins, setup: Setup, corpus_util
                 optimizer.zero_grad()
 
             if step % setup.log_steps == 0:
-                save_model(model, plugins.archive, path=f"{epoch}/{step}")
-                save_model(model, plugins.archive, path="latest")
+                save_model_to_artifacts(model, plugins.artifacts, path=f"{epoch}/{step}")
+                save_model_to_artifacts(model, plugins.artifacts, path="latest")
                 print(f"Step {step} Loss: {epoch_mean_loss:.4f}, Accuracy: {find_accuracy(metric):.4f}%")
 
             if plugins.tensorboard:
@@ -212,10 +250,13 @@ def make_trainer(metadata: Metadata, plugins: Plugins, setup: Setup, corpus_util
     @measure_time
     def train(architecture: Architecture, hyperparameters: Hyperparameters) -> float:
         architecture = setup_architecture(architecture)
-        print_config(plugins, description="Settings:")
         print_config(setup, description="Setup:")
         print_config(architecture, description="Architecture:")
         print_config(hyperparameters, description="Hyperparameters:")
+
+        plugins.setup_artifacts(metadata)
+        plugins.setup_monitoring()
+        plugins.setup_pretrained_embeddings(architecture, corpus_utils)
 
         model = select_architecture[metadata.architecture_name](**architecture.__dict__)
         dataloader = corpus_utils.create_dataloader(hyperparameters.sequence_size, hyperparameters.batch_size)
@@ -239,7 +280,7 @@ def make_trainer(metadata: Metadata, plugins: Plugins, setup: Setup, corpus_util
                 plugins.tensorboard.add_scalar("Epoch/Accuracy", epoch_accuracy, epoch)
                 plugins.tensorboard.add_scalar("Epoch/Total-Loss", epoch_loss, epoch)
 
-            save_model(model, plugins.archive, path=f"{epoch}")
+            save_model_to_artifacts(model, plugins.artifacts, path=f"{epoch}")
             print(f"Epoch {epoch} - Loss: {epoch_loss:.4f}, Accuracy: {epoch_accuracy:.4f}%")
 
             progress_step += setup.max_epochs

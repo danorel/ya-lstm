@@ -1,3 +1,5 @@
+from collections import Counter
+
 import torch
 
 from src.constants.corpus import END_OF_THOUGHT_TOKEN, PAD_TOKEN, UNKNOWN_TOKEN
@@ -7,8 +9,13 @@ from src.modelling.word_level.data_loader import setup_dataloader
 
 def get_utils(corpus: str) -> CorpusUtils:
     words = set(corpus.split())
+    words_counts = Counter(words)
 
-    vocab = sorted(words) + [END_OF_THOUGHT_TOKEN, PAD_TOKEN, UNKNOWN_TOKEN]
+    vocab = sorted(word for word, _ in words_counts.most_common(25000)) + [
+        END_OF_THOUGHT_TOKEN,
+        PAD_TOKEN,
+        UNKNOWN_TOKEN,
+    ]
     vocab_size = len(vocab)
 
     word_to_index = {w: i for i, w in enumerate(vocab)}

@@ -4,7 +4,7 @@ import torch
 
 from src.constants.corpus import END_OF_THOUGHT_TOKEN, UNKNOWN_TOKEN
 from src.constants.device import device
-from src.modelling.common.model_loader import load_model_from_archive
+from src.modelling.common.model_loader import load_model_from_artifacts
 from src.modelling.common.model_trainer import CorpusUtils, Metadata
 
 
@@ -48,7 +48,7 @@ def make_prompter(
     input_to_padded: Callable,
     corpus_utils: CorpusUtils,
 ):
-    model = load_model_from_archive(metadata)
+    model = load_model_from_artifacts(metadata)
 
     def prompt(input_text: str, sequence_size, output_size: int = 255) -> str:
         output_text = input_text.lower().split()

@@ -61,10 +61,11 @@ python \
     --architecture_name lstm \
     --modelling_name word_level \
     --use_tensorboard \
-    --dropout 0.1 \
-    --cells_size 5 \
-    --embedding_size 128 \
-    --hidden_size 256 \
+    --use_pretrained_embeddings \
+    --dropout 0.3 \
+    --cells_size 3 \
+    --embedding_size 50 \
+    --hidden_size 1024 \
     --sequence_size 64 \
     --batch_size 64 \
     --learning_rate 0.0001 \
